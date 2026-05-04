@@ -1,0 +1,11 @@
+{
+"type": "FeatureCollection",
+"name": "portos",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "fid": 1, "MD_LONGITU": "-41:40:51.1", "MD_LATITUD": "-2:53:30.31", "CD_UF": "PI", "CD_LOCALIZ": "oceano", "NM_NOME": "Sem Toponímia Carta Impressa" }, "geometry": { "type": "Point", "coordinates": [ -41.681209329112605, -2.892144971841563 ] } },
+{ "type": "Feature", "properties": { "fid": 2, "MD_LONGITU": "-41:42:57.1", "MD_LATITUD": "-2:50:19.57", "CD_UF": "PI", "CD_LOCALIZ": "oceano", "NM_NOME": "Sem Toponímia Carta Impressa" }, "geometry": { "type": "Point", "coordinates": [ -41.716216065461786, -2.839159884886199 ] } },
+{ "type": "Feature", "properties": { "fid": 3, "MD_LONGITU": "-41:46:23.3", "MD_LATITUD": "-2:54:15.58", "CD_UF": "PI", "CD_LOCALIZ": "rio", "NM_NOME": "Sem Toponímia Carta Impressa" }, "geometry": { "type": "Point", "coordinates": [ -41.773497893198922, -2.904719589988038 ] } },
+{ "type": "Feature", "properties": { "fid": 4, "MD_LONGITU": "-44:35:03.7", "MD_LATITUD": "-7:15:45.80", "CD_UF": "PI", "CD_LOCALIZ": "rio", "NM_NOME": "Sem Toponímia Carta Impressa" }, "geometry": { "type": "Point", "coordinates": [ -44.584718189748898, -7.263136504177043 ] } }
+]
+}
