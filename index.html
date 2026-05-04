@@ -8,6 +8,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1743,6 +1744,438 @@
         left: 10px;
         font-size: 11px;
         min-width: 150px;
+      }
+    }
+
+  
+    /* =========================================================
+       RESPONSIVIDADE CELULAR — Atlas
+       Mantém o layout de computador e troca apenas o layout mobile.
+       ========================================================= */
+    .atlas-mobile-nav,
+    .atlas-mobile-backdrop,
+    .atlas-mobile-drawer-head {
+      display: none;
+    }
+
+    @media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+      :root {
+        --mobile-safe-bottom: max(8px, env(safe-area-inset-bottom));
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden !important;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        position: fixed;
+        inset: 0;
+      }
+
+      .app {
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto minmax(0, 1fr) !important;
+        gap: 6px !important;
+        padding: 6px !important;
+      }
+
+      .topbar {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-rows: auto auto auto !important;
+        gap: 6px 8px !important;
+        min-height: 0 !important;
+        padding: 8px !important;
+        border-radius: 14px !important;
+        overflow: visible !important;
+      }
+
+      .header-logo-seplan {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        justify-content: flex-start !important;
+      }
+
+      .header-logo-ciet {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        justify-content: flex-end !important;
+      }
+
+      .header-logo-seplan img,
+      .header-logo-ciet img {
+        max-height: 38px !important;
+        max-width: 118px !important;
+        object-fit: contain !important;
+      }
+
+      .brand {
+        grid-column: 1 / -1 !important;
+        grid-row: 2 !important;
+        min-width: 0 !important;
+        justify-content: center !important;
+      }
+
+      .brand h1 {
+        font-size: clamp(15px, 4.6vw, 20px) !important;
+        line-height: 1.08 !important;
+        letter-spacing: 0 !important;
+      }
+
+      .brand h1::after {
+        width: 78% !important;
+        height: 3px !important;
+        margin-top: 6px !important;
+      }
+
+      .top-search-wrap {
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+
+      .top-search {
+        width: 100% !important;
+        height: 38px !important;
+        padding: 0 10px !important;
+        border-radius: 12px !important;
+      }
+
+      .top-search input {
+        font-size: 14px !important;
+      }
+
+      .global-suggestions {
+        max-height: min(46vh, 280px) !important;
+        border-radius: 12px !important;
+      }
+
+      .map-shell {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
+      }
+
+      #map {
+        inset: 0 !important;
+      }
+
+      .sidebar,
+      .info-panel {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: calc(62px + var(--mobile-safe-bottom)) !important;
+        top: auto !important;
+        width: auto !important;
+        max-height: min(72dvh, 620px) !important;
+        min-height: 0 !important;
+        z-index: 8050 !important;
+        display: none !important;
+        border-radius: 18px !important;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, .34) !important;
+      }
+
+      body.mobile-panel-filters .sidebar,
+      body.mobile-panel-info .info-panel {
+        display: flex !important;
+      }
+
+      .atlas-mobile-drawer-head {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 11px 14px;
+        border-bottom: 1px solid #e5eaf0;
+        background: #fff;
+        color: #0b3f63;
+        font-weight: 900;
+        flex: 0 0 auto;
+      }
+
+      .atlas-mobile-drawer-close {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 999px;
+        background: #eef2f7;
+        color: #0f172a;
+        font-size: 20px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .sidebar .panel-header,
+      .info-panel > .info-header {
+        display: none !important;
+      }
+
+      .panel-body {
+        padding: 12px 14px 16px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #listaPotencialidades {
+        max-height: 42dvh !important;
+      }
+
+      .pot-actions,
+      .view-actions {
+        flex-direction: column !important;
+      }
+
+      .pot-btn {
+        padding: 9px 10px !important;
+        font-size: 13px !important;
+      }
+
+      .clear-btn,
+      .mini-action-btn,
+      .download-box button {
+        min-height: 42px !important;
+      }
+
+      .atlas-mobile-nav {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: var(--mobile-safe-bottom);
+        z-index: 8100;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+        padding: 7px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, .96);
+        box-shadow: 0 12px 36px rgba(15, 23, 42, .26);
+        backdrop-filter: blur(8px);
+      }
+
+      .atlas-mobile-nav button {
+        min-height: 42px;
+        border: 1px solid #d8e0e8;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #243447;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      body.mobile-panel-filters .atlas-mobile-nav [data-mobile-panel="filters"],
+      body.mobile-panel-info .atlas-mobile-nav [data-mobile-panel="info"],
+      body.mobile-camadas-open .atlas-mobile-nav [data-mobile-panel="layers"] {
+        background: #0b6b2a;
+        color: #fff;
+        border-color: #0b6b2a;
+      }
+
+      .atlas-mobile-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 8025;
+        display: none;
+        background: rgba(15, 23, 42, .26);
+      }
+
+      body.mobile-panel-filters .atlas-mobile-backdrop,
+      body.mobile-panel-info .atlas-mobile-backdrop,
+      body.mobile-camadas-open .atlas-mobile-backdrop {
+        display: block;
+      }
+
+      #coords {
+        display: none !important;
+      }
+
+      #uploadBtn {
+        top: 10px !important;
+        left: 10px !important;
+        padding: 7px 10px !important;
+        font-size: 12px !important;
+        border-radius: 10px !important;
+      }
+
+      #parecerUploadBtn {
+        top: 46px !important;
+        left: 10px !important;
+        padding: 7px 10px !important;
+        font-size: 12px !important;
+        border-radius: 10px !important;
+      }
+
+      #mapaSobreposicoesUploadBtn {
+        top: 84px !important;
+        left: 10px !important;
+        max-width: calc(100vw - 26px) !important;
+        padding: 7px 10px !important;
+        font-size: 12px !important;
+        border-radius: 10px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #camadasWrapper {
+        display: none !important;
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        top: auto !important;
+        bottom: calc(62px + var(--mobile-safe-bottom)) !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: min(62dvh, 520px) !important;
+        z-index: 8070 !important;
+        border-radius: 18px !important;
+      }
+
+      body.mobile-camadas-open #camadasWrapper {
+        display: block !important;
+      }
+
+      #camadasHeader {
+        padding: 11px 14px !important;
+        border-radius: 18px 18px 0 0 !important;
+        font-size: 14px !important;
+      }
+
+      .leaflet-control-layers {
+        max-height: min(52dvh, 460px) !important;
+        font-size: 13px !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .leaflet-top.leaflet-left {
+        top: auto !important;
+        bottom: 76px !important;
+        left: 10px !important;
+        gap: 6px !important;
+      }
+
+      .leaflet-top.leaflet-right {
+        top: 10px !important;
+        right: 10px !important;
+      }
+
+      .legend {
+        left: 50% !important;
+        bottom: 116px !important;
+        width: calc(100vw - 24px) !important;
+        max-width: none !important;
+        max-height: 36dvh !important;
+        font-size: 12px !important;
+      }
+
+      .legend-toggle {
+        left: 50% !important;
+        bottom: 72px !important;
+        font-size: 12px !important;
+        padding: 7px 12px !important;
+      }
+
+      .rosa-sbg {
+        width: 90px !important;
+        height: 90px !important;
+        bottom: 70px !important;
+        transform: scale(.45) !important;
+      }
+
+      .leaflet-popup-content {
+        max-width: 245px !important;
+        max-height: 190px !important;
+        font-size: 12.5px !important;
+      }
+
+      .leaflet-control-attribution {
+        display: none !important;
+      }
+
+      .overlap-map-modal {
+        inset: 4px !important;
+        border-radius: 14px !important;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .header-logo-seplan img,
+      .header-logo-ciet img {
+        max-height: 32px !important;
+        max-width: 100px !important;
+      }
+
+      .brand h1 {
+        font-size: 15px !important;
+      }
+
+      .top-search {
+        height: 36px !important;
+      }
+
+      .atlas-mobile-nav button {
+        font-size: 11px;
+        min-height: 40px;
+      }
+
+      #uploadBtn,
+      #parecerUploadBtn,
+      #mapaSobreposicoesUploadBtn {
+        font-size: 11px !important;
+      }
+    }
+
+    @media (max-height: 520px) and (pointer: coarse) {
+      .topbar {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto auto !important;
+      }
+
+      .header-logo {
+        display: none !important;
+      }
+
+      .brand {
+        grid-row: 1 !important;
+      }
+
+      .brand h1 {
+        font-size: 16px !important;
+      }
+
+      .brand h1::after {
+        display: none !important;
+      }
+
+      .top-search-wrap {
+        grid-row: 2 !important;
+      }
+
+      .top-search {
+        height: 34px !important;
+      }
+
+      .sidebar,
+      .info-panel,
+      #camadasWrapper {
+        max-height: 78dvh !important;
       }
     }
 
@@ -9491,119 +9924,132 @@ function hoverMinerLeave(e) {
       'estado'
     );
   </script>
-<!-- Code injected by live-server -->
+
 <script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
+  /* =========================================================
+     Layout mobile do Atlas: painéis inferiores e redimensionamento do Leaflet.
+     ========================================================= */
+  (function () {
+    if (window.__atlasMobileResponsiveInstalled) return;
+    window.__atlasMobileResponsiveInstalled = true;
+
+    const mobileQuery = window.matchMedia
+      ? window.matchMedia('(max-width: 760px), (max-height: 520px) and (pointer: coarse)')
+      : null;
+
+    function isMobileLayout() {
+      return mobileQuery ? mobileQuery.matches : window.innerWidth <= 760;
+    }
+
+    function invalidateAtlasMaps(delay = 180) {
+      window.setTimeout(function () {
+        try { if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize(false); } catch (_) {}
+        try { if (typeof overlapMapInstance !== 'undefined' && overlapMapInstance && overlapMapInstance.invalidateSize) overlapMapInstance.invalidateSize(false); } catch (_) {}
+      }, delay);
+    }
+
+    function updateMobileButtons() {
+      document.querySelectorAll('.atlas-mobile-nav [data-mobile-panel]').forEach(function (btn) {
+        const target = btn.getAttribute('data-mobile-panel');
+        const active =
+          (target === 'filters' && document.body.classList.contains('mobile-panel-filters')) ||
+          (target === 'info' && document.body.classList.contains('mobile-panel-info')) ||
+          (target === 'layers' && document.body.classList.contains('mobile-camadas-open'));
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    function closeMobilePanels() {
+      document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
+      updateMobileButtons();
+      invalidateAtlasMaps(80);
+    }
+
+    function toggleMobilePanel(target) {
+      if (!isMobileLayout()) return;
+
+      const classMap = {
+        filters: 'mobile-panel-filters',
+        info: 'mobile-panel-info',
+        layers: 'mobile-camadas-open'
+      };
+      const selectedClass = classMap[target];
+      if (!selectedClass) return;
+
+      const wasActive = document.body.classList.contains(selectedClass);
+      document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
+      if (!wasActive) document.body.classList.add(selectedClass);
+      updateMobileButtons();
+      invalidateAtlasMaps(120);
+    }
+
+    function addDrawerHeader(panel, title) {
+      if (!panel || panel.querySelector('.atlas-mobile-drawer-head')) return;
+      const head = document.createElement('div');
+      head.className = 'atlas-mobile-drawer-head';
+      head.innerHTML = '<span>' + title + '</span><button type="button" class="atlas-mobile-drawer-close" aria-label="Fechar painel">×</button>';
+      panel.insertBefore(head, panel.firstChild);
+      head.querySelector('button').addEventListener('click', closeMobilePanels);
+    }
+
+    function ensureMobileUi() {
+      if (!document.querySelector('.atlas-mobile-backdrop')) {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'atlas-mobile-backdrop';
+        backdrop.addEventListener('click', closeMobilePanels);
+        document.body.appendChild(backdrop);
+      }
+
+      if (!document.querySelector('.atlas-mobile-nav')) {
+        const nav = document.createElement('nav');
+        nav.className = 'atlas-mobile-nav';
+        nav.setAttribute('aria-label', 'Controles móveis do mapa');
+        nav.innerHTML =
+          '<button type="button" data-mobile-panel="filters" aria-pressed="false">☰ Filtros</button>' +
+          '<button type="button" data-mobile-panel="info" aria-pressed="false">ⓘ Info</button>' +
+          '<button type="button" data-mobile-panel="layers" aria-pressed="false">▦ Camadas</button>';
+        nav.addEventListener('click', function (event) {
+          const btn = event.target.closest('[data-mobile-panel]');
+          if (!btn) return;
+          toggleMobilePanel(btn.getAttribute('data-mobile-panel'));
+        });
+        document.body.appendChild(nav);
+      }
+
+      addDrawerHeader(document.querySelector('.sidebar'), 'Filtros do mapa');
+      addDrawerHeader(document.querySelector('.info-panel'), 'Informações da seleção');
+    }
+
+    function syncMobileLayout() {
+      ensureMobileUi();
+      const active = isMobileLayout();
+      document.body.classList.toggle('atlas-mobile-mode', active);
+      if (!active) closeMobilePanels();
+      invalidateAtlasMaps(220);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', syncMobileLayout);
+    } else {
+      syncMobileLayout();
+    }
+
+    if (mobileQuery) {
+      if (mobileQuery.addEventListener) mobileQuery.addEventListener('change', syncMobileLayout);
+      else if (mobileQuery.addListener) mobileQuery.addListener(syncMobileLayout);
+    }
+
+    window.addEventListener('resize', function () { invalidateAtlasMaps(160); });
+    window.addEventListener('orientationchange', function () {
+      closeMobilePanels();
+      syncMobileLayout();
+      invalidateAtlasMaps(420);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeMobilePanels();
+    });
+  })();
 </script>
-<!-- Code injected by live-server -->
-<script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
-</script>
-<!-- Code injected by live-server -->
-<script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
-</script>
+
 </body>
 </html>
