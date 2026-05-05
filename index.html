@@ -9,6 +9,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2301,7 +2302,7 @@
           <h3>Orientação</h3>
           <ul class="bullets">
             <li>No painel esquerdo, clique em uma ou mais potencialidades.</li>
-            <li>Os municípios com valor 1 em pelo menos uma potencialidade ativa ficarão destacados no mapa temático.</li>
+            <li>Os municípios que possuem as potencialidades ativas ficarão destacados no mapa temático.</li>
             <li>Os símbolos das potencialidades aparecem diretamente sobre cada município.</li>
           </ul>
         </div>
@@ -3288,7 +3289,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       layout.y += 88;
 
       addTitle('3. Síntese das potencialidades');
-      addParagraph(`O município apresenta ${presentes.length} potencialidade(s) identificada(s) na base temática, considerando os campos marcados com valor 1.`);
+      addParagraph(`O município apresenta ${presentes.length} potencialidade(s) identificada(s) na base temática.`);
       addTable([
         ['Total de potencialidades presentes', String(presentes.length)],
         ['Campos de potencialidades avaliados', String(potencialidadesCampos.length)]
@@ -3298,7 +3299,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       if (presentes.length) {
         addTable(presentes.map((nome, idx) => [`Potencialidade ${idx + 1}`, nome]), 55);
       } else {
-        addParagraph('Nenhuma potencialidade com valor 1 foi identificada para o município selecionado na base carregada.');
+        addParagraph('Nenhuma potencialidade foi identificada para o município selecionado na base carregada.');
       }
 
       addTitle('5. Indicadores principais');
@@ -3474,7 +3475,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       addTitle('4. Potencialidades do território');
       const potencialidadesTerritorio = potencialidadesTerritorioResumo;
       if (potencialidadesTerritorio.length) {
-        addParagraph('As potencialidades abaixo indicam os municípios do território que apresentam cada potencialidade marcada com valor 1 na base temática.');
+        addParagraph('As potencialidades abaixo indicam os municípios do território em que cada potencialidade foi identificada na base temática.');
         addTable(potencialidadesTerritorio, 84);
       } else {
         addParagraph('Nenhuma potencialidade ativa foi identificada para os municípios vinculados a este território na base temática carregada.');
@@ -3955,7 +3956,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         mouseover: highlightFeature,
         mouseout: resetHighlightTerritorio,
         click: function(e) {
-          L.DomEvent.stop(e);
+          if (e?.originalEvent) L.DomEvent.stop(e.originalEvent);
+          map.closePopup();
 
           const territorioNome = feature.properties?.NM_TD;
           const territorioCodigo = feature.properties?.fid;
@@ -3963,62 +3965,11 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
           const municipios = collectMunicipiosDoTerritorio(territorioNome, territorioCodigo, false);
           const corTerritorio = getColorForTerritorio(territorioNome || 'Território', territorioCodigo || '');
 
-          let totaisHtml = '';
-          if (tdStats) {
-            totaisHtml = `
-              <hr><b style="color:${corTerritorio};">Totais do Território</b>
-              <table style="border-collapse:collapse;width:100%;font-size:.95em;margin-top:6px;">
-                <tr>
-                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:normal;">População (Censo 2022)</th>
-                  <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${formatNumeroPTBR(tdStats.pop,0)}</td>
-                </tr>
-                <tr>
-                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:normal;">PIB 2021 (R$)</th>
-                  <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${formatNumeroPTBR(tdStats.pib * 1000,2)}</td>
-                </tr>
-                <tr>
-                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:normal;">População (% do Piauí)</th>
-                  <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${formatNumeroPTBR(tdStats.pop_pct_piaui,2)}%</td>
-                </tr>
-                <tr>
-                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:normal;">PIB (% do Piauí)</th>
-                  <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${formatNumeroPTBR(tdStats.pib_pct_piaui,2)}%</td>
-                </tr>
-              </table>`;
-          }
-
-          const baseHtml =
-            `<div style="border-left:6px solid ${corTerritorio};padding-left:8px;">` +
-            `<b>Território:</b> ${territorioNome || "-"}<br>` +
-            `<b>Código:</b> ${territorioCodigo || "-"}<br>` +
-            `<button class="download-btn" style="margin-top:7px;">Baixar KML deste território</button>` +
-            `</div>` + totaisHtml;
-
-          const listaHtml = municipios.length
-            ? `<hr><b style="color:${corTerritorio};">Municípios (${municipios.length}):</b>
-               <div style="max-height:150px;overflow:auto;margin-top:6px;">
-                 <ul style="margin:0;padding-left:18px;">${municipios.map(n => `<li>${n}</li>`).join('')}</ul>
-               </div>`
-            : `<hr><i>Nenhum município associado encontrado.</i>`;
-
-          layer.bindPopup(baseHtml + listaHtml);
-
-          layer.once('popupopen', (ev) => {
-            const popupEl = ev.popup.getElement();
-            const btn = popupEl.querySelector('.download-btn');
-            if (!btn) return;
-            btn.addEventListener('click', (ev2) => {
-              ev2.stopPropagation();
-              buildKmlDownload(feature, feature.properties?.NM_TD || 'territorio', 'ff00ffff', '00ffffff', 5);
-            });
-          });
-
           aplicarEstiloTerritoriosSelecionado(territorioNome);
           currentSelectedFeature = feature;
           currentSelectedType = 'territorio';
           updateInfoPanelFromTerritorio(territorioNome, territorioCodigo, tdStats, municipios, corTerritorio);
           aplicarPotencialidadesDoTerritorio(territorioNome, territorioCodigo);
-          layer.openPopup();
         }
       });
     }
@@ -4150,6 +4101,66 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return chave ? POTENCIALIDADE_ICONES[chave] : "";
     }
 
+    function obterDescricaoPotencialidade(campo) {
+      const n = normalizarTextoPotencialidade(campo)
+        .replace(/[.,;:/()–-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const descricoes = {
+        'agroindustria': 'Indica vocação para beneficiamento, transformação e agregação de valor à produção agropecuária local.',
+        'agronegocio': 'Representa potencial ligado à produção rural, cadeias agropecuárias, logística e atividades econômicas do campo.',
+        'alojamento e alimentacao': 'Indica presença ou oportunidade de serviços de hospedagem, alimentação e apoio ao turismo e à circulação de pessoas.',
+        'apicultura e meliponicultura': 'Aponta aptidão para criação de abelhas, produção de mel, derivados e fortalecimento da agricultura familiar.',
+        'artesanato': 'Representa potencial cultural e produtivo associado a saberes locais, produção manual e economia criativa.',
+        'atividades profissionais cientificas e tecnicas': 'Indica concentração ou oportunidade para serviços especializados, consultorias, pesquisa, inovação e apoio técnico.',
+        'avicultura': 'Aponta vocação para criação de aves, produção de ovos, carne e cadeias de suprimento associadas.',
+        'bovinocultura': 'Indica potencial para criação de bovinos, produção de carne, leite e atividades pecuárias complementares.',
+        'cajucultura': 'Representa aptidão para cultivo do caju, beneficiamento da castanha, polpa e derivados.',
+        'cana de acucar': 'Indica potencial para cultivo da cana-de-açúcar e aproveitamento agroindustrial de seus derivados.',
+        'construcao': 'Aponta dinamismo ou oportunidade ligada à construção civil, obras, materiais e serviços relacionados.',
+        'energia eolica potencial para expansao': 'Indica áreas com condições favoráveis para ampliação de projetos de geração de energia eólica.',
+        'energia eolica': 'Representa potencial de geração de energia a partir dos ventos e implantação de empreendimentos eólicos.',
+        'energia solar potencial para expansao': 'Indica áreas com condições favoráveis para ampliação de projetos de geração de energia solar.',
+        'energia solar': 'Representa potencial de geração de energia fotovoltaica e aproveitamento da irradiação solar.',
+        'energia hidreletrica potencial para expansao': 'Indica possibilidade de ampliação ou aproveitamento complementar de recursos hídricos para geração de energia.',
+        'energia hidreletrica': 'Representa potencial de geração de energia a partir de cursos d’água, barramentos ou infraestrutura hídrica.',
+        'energia petroleo gas potencial para expansao': 'Aponta possibilidade de expansão relacionada à cadeia de petróleo, gás, combustíveis e infraestrutura energética.',
+        'energia agua biomassa potencial para expansao': 'Indica oportunidade de aproveitamento energético associado à água, biomassa ou resíduos orgânicos.',
+        'equinocultura': 'Indica vocação para criação, manejo e uso econômico de equinos em atividades rurais, esportivas ou culturais.',
+        'extrativismo': 'Representa potencial de uso sustentável de recursos naturais, produtos florestais, minerais ou vegetais.',
+        'fruticultura': 'Aponta aptidão para cultivo de frutas, beneficiamento, comercialização e fortalecimento de cadeias produtivas.',
+        'horticultura': 'Indica potencial para produção de hortaliças, abastecimento local, agricultura irrigada ou familiar.',
+        'hortifruticultura': 'Indica potencial para produção integrada de frutas, verduras e hortaliças.',
+        'industria': 'Representa vocação para instalação ou fortalecimento de atividades industriais e transformação produtiva.',
+        'informacao e comunicacao': 'Indica potencial ligado a tecnologia, comunicação, serviços digitais e infraestrutura de informação.',
+        'mandiocultura': 'Aponta aptidão para cultivo da mandioca, fabricação de farinha, fécula e outros derivados.',
+        'mineracao': 'Representa ocorrência, atividade ou vocação relacionada à extração mineral e cadeias associadas.',
+        'ovinocaprinocultura': 'Indica potencial para criação de ovinos e caprinos, produção de carne, leite e derivados.',
+        'pesca piscicultura e aquicultura': 'Aponta vocação para pesca, criação de peixes, aquicultura e aproveitamento de recursos hídricos.',
+        'polo de educacao': 'Indica presença ou capacidade de atração de instituições, cursos, formação técnica e ensino superior.',
+        'polo de educacao superior': 'Indica presença ou capacidade de atração de instituições de ensino superior e formação qualificada.',
+        'polo de saude': 'Representa concentração ou potencial de serviços de saúde, atendimento regional e infraestrutura assistencial.',
+        'suinocultura': 'Aponta vocação para criação de suínos, produção de carne e integração com cadeias agropecuárias.',
+        'transporte armazenagem e correio': 'Indica potencial logístico ligado a transporte, armazenagem, distribuição e circulação de mercadorias.',
+        'turismo': 'Representa atrativos, serviços ou condições favoráveis para visitação, lazer, cultura e economia do turismo.',
+        'vestuario': 'Indica potencial para confecção, moda, produção têxtil, comércio e pequenas indústrias do vestuário.',
+        'zpe': 'Indica potencial associado à Zona de Processamento de Exportação, logística, indústria e comércio exterior.'
+      };
+
+      if (descricoes[n]) return descricoes[n];
+      if (n.includes('energia') && n.includes('expansao')) return 'Indica oportunidade de ampliação de projetos, infraestrutura ou cadeias produtivas ligadas ao setor energético.';
+      if (n.includes('energia')) return 'Representa potencial de geração, aproveitamento ou infraestrutura relacionada ao setor energético.';
+      if (n.includes('turismo')) return descricoes['turismo'];
+      if (n.includes('mineracao')) return descricoes['mineracao'];
+      if (n.includes('educacao')) return descricoes['polo de educacao'];
+      if (n.includes('saude')) return descricoes['polo de saude'];
+      if (n.includes('pesca') || n.includes('aquicultura') || n.includes('piscicultura')) return descricoes['pesca piscicultura e aquicultura'];
+      if (n.includes('transporte') || n.includes('armazenagem')) return descricoes['transporte armazenagem e correio'];
+
+      return 'Indica presença, vocação ou oportunidade de desenvolvimento dessa atividade no município, conforme a base temática do Atlas.';
+    }
+
     function criarHtmlIconePotencialidade(campo, classe = 'pot-inline-icon') {
       const src = obterIconePotencialidade(campo);
       const titulo = escapeHtmlPotencialidade(campo);
@@ -4219,7 +4230,14 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
           <p><strong>Região intermediária:</strong> ${escapeHtmlPotencialidade(territorio)}</p>
           <p><strong>Área:</strong> ${escapeHtmlPotencialidade(area)}</p>
           <p style="margin-top:8px;"><strong>Potencialidades presentes:</strong></p>
-          <div>${ativos.map(campo => `<span class="pill">${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</span>`).join('')}</div>
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            ${ativos.map(campo => `
+              <div style="border:1px solid #e5e7eb;border-radius:10px;padding:7px;background:#f8fafc;">
+                <strong>${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</strong><br>
+                <span>${escapeHtmlPotencialidade(obterDescricaoPotencialidade(campo))}</span>
+              </div>
+            `).join('')}
+          </div>
         </div>
       `;
     }
@@ -4648,6 +4666,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       const regiao = props.NM_RGI || props.NM_RGINT || 'Não informado';
       const territorio = props.NM_RGINT || 'Não informado';
       const area = props.AREA_KM2 ? Number(props.AREA_KM2).toLocaleString('pt-BR', { maximumFractionDigits: 3 }) + ' km²' : 'Não informado';
+      const descricao = obterDescricaoPotencialidade(campo);
       const ativas = potencialidadesCampos
         .filter(c => Number(props[c]) === 1)
         .map(c => `<span class="pill">${criarHtmlIconePotencialidade(c, 'pot-inline-icon')} ${escapeHtmlPotencialidade(c)}</span>`)
@@ -4657,12 +4676,11 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         <div class="pot-popup">
           <h3>${escapeHtmlPotencialidade(municipio)}</h3>
           <div class="pot-popup-badge">${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</div>
-          <p><strong>Campo:</strong> ${escapeHtmlPotencialidade(campo)}</p>
-          <p><strong>Valor:</strong> 1 — potencialidade presente</p>
+          <p><strong>O que significa:</strong> ${escapeHtmlPotencialidade(descricao)}</p>
           <p><strong>Região imediata:</strong> ${escapeHtmlPotencialidade(regiao)}</p>
           <p><strong>Região intermediária:</strong> ${escapeHtmlPotencialidade(territorio)}</p>
           <p><strong>Área:</strong> ${escapeHtmlPotencialidade(area)}</p>
-          <p style="margin-top:8px;"><strong>Mais informações:</strong></p>
+          <p style="margin-top:8px;"><strong>Outras potencialidades do município:</strong></p>
           <div>${ativas}</div>
         </div>
       `;
@@ -4683,7 +4701,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
             <h3>Potencialidade selecionada</h3>
             <p class="muted">
               <strong>${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</strong><br>
-              Este campo possui valor <strong>1</strong> neste município.
+              ${escapeHtmlPotencialidade(obterDescricaoPotencialidade(campo))}
             </p>
           </div>
 
@@ -4757,7 +4775,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
               ${campos.map(campo => `<span class="pill">${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</span>`).join('')}
             </div>
             <p class="muted" style="margin-top:10px;">
-              O mapa destaca os municípios que possuem valor <strong>1</strong> em pelo menos uma das potencialidades selecionadas.
+              O mapa destaca os municípios em que pelo menos uma das potencialidades selecionadas foi identificada.
             </p>
           </div>
 
@@ -8612,13 +8630,13 @@ function hoverMinerLeave(e) {
 
       addTitle('5. Potencialidades dos municípios onde a área se situa');
       if (resMunicipios.total && potResumo.tipos.length) {
-        addParagraph('As potencialidades abaixo foram agregadas a partir dos municípios intersectados pela área do KML. O número indica em quantos municípios intersectados a potencialidade aparece com valor 1.');
+        addParagraph('As potencialidades abaixo foram agregadas a partir dos municípios intersectados pela área do KML. O número indica em quantos municípios intersectados a potencialidade foi identificada.');
         addTable(potResumo.tipos.map(([nome, qtd]) => [nome, `${formatNumeroPTBR(qtd, 0)} município(s)`]), 92);
 
         addTitle('6. Síntese por município intersectado');
         const linhasMun = potResumo.porMunicipio.slice(0, 45).map(item => [
           item.municipio,
-          item.presentes.length ? item.presentes.join('; ') : 'Sem potencialidade registrada com valor 1'
+          item.presentes.length ? item.presentes.join('; ') : 'Sem potencialidade registrada'
         ]);
         addTable(linhasMun.length ? linhasMun : [['Municípios', 'Nenhum município com potencialidade registrada']], 52);
         if (potResumo.porMunicipio.length > 45) {
@@ -9910,7 +9928,7 @@ function hoverMinerLeave(e) {
           <h3>Orientação</h3>
           <ul class="bullets">
             <li>No painel esquerdo, clique em uma ou mais potencialidades.</li>
-            <li>Os municípios com valor 1 em pelo menos uma potencialidade ativa ficarão destacados no mapa temático.</li>
+            <li>Os municípios que possuem as potencialidades ativas ficarão destacados no mapa temático.</li>
             <li>Os símbolos das potencialidades aparecem diretamente sobre cada município.</li>
           </ul>
         </div>
