@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1255,6 +1257,12 @@
       border: none !important;
     }
 
+
+    /* Potencialidades: bloqueia o antigo marcador agregado "+n" */
+    .pot-plus-marker {
+      display: none !important;
+    }
+
     .pot-popup h3 {
       margin: 0 0 8px 0;
       color: var(--piaui-green);
@@ -2166,6 +2174,40 @@
       #camadasWrapper {
         max-height: 78dvh !important;
       }
+    }
+
+  
+
+    /* ===== AJUSTE: remove fundo/branco dos símbolos das potencialidades =====
+       Mantém apenas uma sombra discreta para leitura no mapa. */
+    .pot-symbol-leaflet,
+    .pot-symbol-leaflet.leaflet-marker-icon,
+    .emoji-marker,
+    .emoji-marker:hover,
+    .emoji-marker.is-hovered {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
+    .pot-marker-img,
+    .emoji-marker:hover .pot-marker-img,
+    .emoji-marker.is-hovered .pot-marker-img,
+    .overlap-pot-icon {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)) !important;
+      mix-blend-mode: multiply;
+    }
+
+    .pot-panel-icon,
+    .pot-inline-icon,
+    .pot-tooltip-icon {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
     }
 
   </style>
@@ -4165,8 +4207,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return `<div class="pot-plus-marker" style="--pot-marker-size:${size}px" title="${total} potencialidade(s)">${texto}</div>`;
     }
 
-    const POT_SYMBOL_BATCH_SIZE = 32;
-    const POT_SYMBOL_CLUSTER_ZOOM = 9;
+    const POT_SYMBOL_BATCH_SIZE = 5000;
+    const POT_SYMBOL_CLUSTER_ZOOM = 0;
     let potSymbolRenderToken = 0;
 
     function getCamposPotencialidadesSelecionadas() {
@@ -4195,8 +4237,9 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     }
 
     function deveAgruparSimbolosPotencialidade(totalAtivos) {
-      const zoom = Number(map?.getZoom?.() || 7);
-      return totalAtivos > 1 && zoom < POT_SYMBOL_CLUSTER_ZOOM;
+      // SEM AGRUPAMENTO: nunca cria o marcador agregado "+n".
+      // Cada potencialidade presente no município é desenhada como símbolo individual.
+      return false;
     }
 
     function limparSimbolosPotencialidades() {
@@ -4245,7 +4288,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
             <div class="chips">
               ${ativos.map(campo => `<span class="pill">${criarHtmlIconePotencialidade(campo, 'pot-inline-icon')} ${escapeHtmlPotencialidade(campo)}</span>`).join('')}
             </div>
-            <p class="muted" style="margin-top:10px;">O marcador com <strong>+</strong> agrupa as potencialidades para evitar poluição visual no mapa inicial. Aproxime o zoom para ver os símbolos individuais.</p>
+            <p class="muted" style="margin-top:10px;">Os símbolos das potencialidades são exibidos diretamente no mapa, sem agrupamento por "+n".</p>
           </div>
 
           <div class="download-box">
@@ -4308,6 +4351,66 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       marker.on('click', () => {
         currentSelectedFeature = layer.feature;
+        currentSelectedType = 'potencialidade';
+        atualizarPainelPorSimboloPotencialidade(props, campo);
+      });
+
+      return marker;
+    }
+
+    function criarMarkerPotencialidadePorFeature(feature, campo, index, total) {
+      const props = feature?.properties || {};
+      const coords = feature?.geometry?.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) return null;
+
+      const latlng = L.latLng(Number(coords[1]), Number(coords[0]));
+      if (!Number.isFinite(latlng.lat) || !Number.isFinite(latlng.lng)) return null;
+
+      const size = tamanhoIconePotencialidade();
+      const offset = calcularOffsetSimboloPotencialidade(index, total);
+      const icon = L.divIcon({
+        className: 'pot-symbol-leaflet',
+        html: criarHtmlMarcadorPotencialidade(campo, size),
+        iconSize: [size, size],
+        iconAnchor: [size / 2 - offset.x, size / 2 - offset.y],
+        popupAnchor: [offset.x, -size / 2 + offset.y]
+      });
+
+      const marker = L.marker(latlng, {
+        icon,
+        pane: 'pane-symbols',
+        interactive: true,
+        keyboard: true,
+        title: `${campo} - ${props.NM_MUN || ''}`
+      });
+
+      marker.bindTooltip(`${criarHtmlIconePotencialidade(campo, 'pot-tooltip-icon')} ${escapeHtmlPotencialidade(campo)}`, {
+        direction: 'top',
+        opacity: 0.95,
+        sticky: true
+      });
+
+      marker.bindPopup(montarPopupPotencialidade(props, campo), {
+        maxWidth: 340,
+        autoPan: true,
+        closeButton: true
+      });
+
+      marker.on('mouseover', () => {
+        marker.setZIndexOffset(10000);
+        const el = marker.getElement()?.querySelector('.emoji-marker');
+        if (el) el.classList.add('is-hovered');
+        marker.openTooltip();
+      });
+
+      marker.on('mouseout', () => {
+        marker.setZIndexOffset(0);
+        const el = marker.getElement()?.querySelector('.emoji-marker');
+        if (el) el.classList.remove('is-hovered');
+      });
+
+      marker.on('click', () => {
+        currentSelectedFeature = feature;
         currentSelectedType = 'potencialidade';
         atualizarPainelPorSimboloPotencialidade(props, campo);
       });
@@ -4486,21 +4589,44 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       // Nesse caso, não redesenha símbolos no zoom e não volta a ativar tudo automaticamente.
       if (filtroExplicitamenteVazio) return itens;
 
-      potencialidadesLayer.eachLayer(layer => {
-        if (!layerPotencialidadeDentroDoEscopo(layer)) return;
+      // Renderização direta pelos pontos do GeoJSON, sem depender do circleMarker invisível.
+      // Isso corrige o caso em que o "+n" foi removido e os ícones individuais não apareciam.
+      (POTENCIALIDADES_GEOJSON?.features || []).forEach(feature => {
+        const props = feature?.properties || {};
 
-        const props = layer.feature?.properties || {};
+        // Respeita filtro por município/território quando houver seleção.
+        if (potencialidadesEscopoAtual) {
+          const cdMun = normalizarCodigoMunicipio(props.CD_MUN);
+          const nomeMun = normalizeText(props.NM_MUN);
+          let dentro = true;
+
+          if (potencialidadesEscopoAtual.tipo === 'municipio') {
+            dentro = (
+              !!potencialidadesEscopoAtual.cdMun && !!cdMun && potencialidadesEscopoAtual.cdMun === cdMun
+            ) || (
+              !!potencialidadesEscopoAtual.nomeMun && !!nomeMun && potencialidadesEscopoAtual.nomeMun === nomeMun
+            );
+          } else if (potencialidadesEscopoAtual.tipo === 'territorio') {
+            dentro = (
+              !!cdMun && potencialidadesEscopoAtual.codigosMunicipios?.has(cdMun)
+            ) || (
+              !!nomeMun && potencialidadesEscopoAtual.nomesMunicipios?.has(nomeMun)
+            );
+          }
+
+          if (!dentro) return;
+        }
+
         const ativos = usandoFiltro
           ? camposSelecionados.filter(campo => Number(props[campo]) === 1)
           : obterPotencialidadesAtivas(props);
 
         if (!ativos.length) return;
 
-        if (deveAgruparSimbolosPotencialidade(ativos.length)) {
-          itens.push({ tipo: 'grupo', layer, ativos });
-        } else {
-          ativos.forEach((campo, index) => itens.push({ tipo: 'icone', layer, campo, index, total: ativos.length }));
-        }
+        // SEM "+n": sempre cria um item individual para cada potencialidade.
+        ativos.forEach((campo, index) => {
+          itens.push({ tipo: 'icone', feature, campo, index, total: ativos.length });
+        });
       });
 
       return itens;
@@ -4514,34 +4640,17 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       if (Array.isArray(camposSelecionados) && camposSelecionados.length === 0) return;
 
       const itens = coletarItensSimbolosPotencialidades(camposSelecionados);
-      let pos = 0;
 
-      function renderizarLote() {
+      // Renderiza direto, sem agregador "+n" e sem depender de requestIdleCallback.
+      // A quantidade de pontos é pequena o suficiente para desenhar de uma vez.
+      for (const item of itens) {
         if (token !== potSymbolRenderToken) return;
-        const fim = Math.min(pos + POT_SYMBOL_BATCH_SIZE, itens.length);
 
-        for (; pos < fim; pos++) {
-          const item = itens[pos];
-          const marker = item.tipo === 'grupo'
-            ? criarMarkerGrupoPotencialidades(item.layer, item.ativos)
-            : criarMarkerPotencialidade(item.layer, item.campo, item.index, item.total);
+        const marker = item.feature
+          ? criarMarkerPotencialidadePorFeature(item.feature, item.campo, item.index, item.total)
+          : criarMarkerPotencialidade(item.layer, item.campo, item.index, item.total);
 
-          if (marker) marker.addTo(symbolLayerGroup);
-        }
-
-        if (pos < itens.length) {
-          if (window.requestIdleCallback) {
-            window.requestIdleCallback(renderizarLote, { timeout: 80 });
-          } else {
-            window.setTimeout(renderizarLote, 16);
-          }
-        }
-      }
-
-      if (window.requestAnimationFrame) {
-        window.requestAnimationFrame(renderizarLote);
-      } else {
-        window.setTimeout(renderizarLote, 0);
+        if (marker) marker.addTo(symbolLayerGroup);
       }
     }
 
@@ -10057,5 +10166,43 @@ function hoverMinerLeave(e) {
   })();
 </script>
 
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 </body>
 </html>
