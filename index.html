@@ -2178,8 +2178,9 @@
 
   
 
-    /* ===== AJUSTE: remove fundo/branco dos símbolos das potencialidades =====
-       Mantém apenas uma sombra discreta para leitura no mapa. */
+    /* ===== AJUSTE LEVE: silhueta branca pré-renderizada =====
+       Não usa filter/drop-shadow em massa nos marcadores do mapa.
+       A silhueta é gerada uma única vez por tipo de ícone via canvas e reaproveitada em cache. */
     .pot-symbol-leaflet,
     .pot-symbol-leaflet.leaflet-marker-icon,
     .emoji-marker,
@@ -2189,6 +2190,7 @@
       border: none !important;
       box-shadow: none !important;
       outline: none !important;
+      will-change: auto !important;
     }
 
     .pot-marker-img,
@@ -2198,8 +2200,14 @@
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)) !important;
-      mix-blend-mode: multiply;
+      mix-blend-mode: normal !important;
+      filter: none !important;
+      -webkit-filter: none !important;
+    }
+
+    .emoji-marker:hover,
+    .emoji-marker.is-hovered {
+      transform: scale(1.10);
     }
 
     .pot-panel-icon,
@@ -2208,6 +2216,7 @@
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
+      filter: none !important;
     }
 
   </style>
@@ -4131,6 +4140,77 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return chave ? POTENCIALIDADE_ICONES[chave] : "";
     }
 
+    const POT_ICON_OUTLINE_CACHE = new Map();
+    const POT_ICON_OUTLINE_PENDING = new Set();
+
+    function chaveIconePotencialidade(campo) {
+      return normalizarTextoPotencialidade(campo)
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'potencialidade';
+    }
+
+    function gerarIconePotencialidadeSilhuetado(chave, src) {
+      if (!src || POT_ICON_OUTLINE_PENDING.has(chave) || POT_ICON_OUTLINE_CACHE.has(chave)) return;
+      POT_ICON_OUTLINE_PENDING.add(chave);
+
+      const img = new Image();
+      img.decoding = 'async';
+
+      img.onload = () => {
+        try {
+          const size = 48;
+          const pad = 5;
+          const drawSize = size - pad * 2;
+
+          const mask = document.createElement('canvas');
+          mask.width = size;
+          mask.height = size;
+          const mctx = mask.getContext('2d');
+          mctx.imageSmoothingEnabled = true;
+          mctx.imageSmoothingQuality = 'high';
+          mctx.drawImage(img, pad, pad, drawSize, drawSize);
+          mctx.globalCompositeOperation = 'source-in';
+          mctx.fillStyle = '#ffffff';
+          mctx.fillRect(0, 0, size, size);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          const offsets = [
+            [-2, 0], [2, 0], [0, -2], [0, 2],
+            [-1, -1], [1, -1], [-1, 1], [1, 1]
+          ];
+          offsets.forEach(([x, y]) => ctx.drawImage(mask, x, y));
+          ctx.drawImage(img, pad, pad, drawSize, drawSize);
+
+          const dataUrl = canvas.toDataURL('image/png');
+          POT_ICON_OUTLINE_CACHE.set(chave, dataUrl);
+
+          document.querySelectorAll(`img[data-pot-key="${chave}"]`).forEach(el => {
+            if (el && el.getAttribute('src') !== dataUrl) el.setAttribute('src', dataUrl);
+          });
+        } catch (err) {
+          // Se o canvas falhar, mantém o ícone original sem travar o mapa.
+        } finally {
+          POT_ICON_OUTLINE_PENDING.delete(chave);
+        }
+      };
+
+      img.onerror = () => POT_ICON_OUTLINE_PENDING.delete(chave);
+      img.src = src;
+    }
+
+    function obterIconePotencialidadeSilhuetado(campo, src) {
+      const chave = chaveIconePotencialidade(campo);
+      if (POT_ICON_OUTLINE_CACHE.has(chave)) return POT_ICON_OUTLINE_CACHE.get(chave);
+      gerarIconePotencialidadeSilhuetado(chave, src);
+      return src;
+    }
+
     function obterDescricaoPotencialidade(campo) {
       const n = normalizarTextoPotencialidade(campo)
         .replace(/[.,;:/()–-]/g, ' ')
@@ -4192,10 +4272,16 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     }
 
     function criarHtmlIconePotencialidade(campo, classe = 'pot-inline-icon') {
-      const src = obterIconePotencialidade(campo);
+      const srcOriginal = obterIconePotencialidade(campo);
       const titulo = escapeHtmlPotencialidade(campo);
-      if (!src) return `<span class="pot-icon-fallback" title="${titulo}">•</span>`;
-      return `<img class="${classe}" src="${src}" alt="${titulo}" title="${titulo}" loading="lazy">`;
+      if (!srcOriginal) return `<span class="pot-icon-fallback" title="${titulo}">•</span>`;
+
+      const usarSilhuetaCache = /\b(pot-marker-img|overlap-pot-icon)\b/.test(classe);
+      const chave = usarSilhuetaCache ? chaveIconePotencialidade(campo) : '';
+      const src = usarSilhuetaCache ? obterIconePotencialidadeSilhuetado(campo, srcOriginal) : srcOriginal;
+      const dataKey = usarSilhuetaCache ? ` data-pot-key="${chave}"` : '';
+
+      return `<img class="${classe}" src="${escapeHtmlPotencialidade(src)}" alt="${titulo}" title="${titulo}" loading="lazy"${dataKey}>`;
     }
 
     function criarHtmlMarcadorPotencialidade(campo, size = 18) {
@@ -4207,7 +4293,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return `<div class="pot-plus-marker" style="--pot-marker-size:${size}px" title="${total} potencialidade(s)">${texto}</div>`;
     }
 
-    const POT_SYMBOL_BATCH_SIZE = 5000;
+    const POT_SYMBOL_BATCH_SIZE = 140;
     const POT_SYMBOL_CLUSTER_ZOOM = 0;
     let potSymbolRenderToken = 0;
 
@@ -4640,18 +4726,33 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       if (Array.isArray(camposSelecionados) && camposSelecionados.length === 0) return;
 
       const itens = coletarItensSimbolosPotencialidades(camposSelecionados);
+      let indice = 0;
 
-      // Renderiza direto, sem agregador "+n" e sem depender de requestIdleCallback.
-      // A quantidade de pontos é pequena o suficiente para desenhar de uma vez.
-      for (const item of itens) {
+      const agendarProximoLote = (fn) => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(fn, { timeout: 120 });
+        } else {
+          requestAnimationFrame(fn);
+        }
+      };
+
+      const renderizarLote = () => {
         if (token !== potSymbolRenderToken) return;
 
-        const marker = item.feature
-          ? criarMarkerPotencialidadePorFeature(item.feature, item.campo, item.index, item.total)
-          : criarMarkerPotencialidade(item.layer, item.campo, item.index, item.total);
+        const fim = Math.min(indice + POT_SYMBOL_BATCH_SIZE, itens.length);
+        for (; indice < fim; indice += 1) {
+          const item = itens[indice];
+          const marker = item.feature
+            ? criarMarkerPotencialidadePorFeature(item.feature, item.campo, item.index, item.total)
+            : criarMarkerPotencialidade(item.layer, item.campo, item.index, item.total);
 
-        if (marker) marker.addTo(symbolLayerGroup);
-      }
+          if (marker) marker.addTo(symbolLayerGroup);
+        }
+
+        if (indice < itens.length) agendarProximoLote(renderizarLote);
+      };
+
+      renderizarLote();
     }
 
     function adicionarSimbolosMunicipio(feature, layer) {
@@ -8013,13 +8114,23 @@ function hoverMinerLeave(e) {
         const n = normalizeText(nomeCamada || '');
         if (n.includes('potencial')) {
           let src = '';
+          let campoPot = '';
           if (typeof obterIconePotencialidade === 'function') {
             const presentes = (typeof potencialidadesCampos !== 'undefined' ? potencialidadesCampos : [])
               .filter(campo => Number(p[campo]) === 1);
-            if (presentes.length) src = obterIconePotencialidade(presentes[0]);
+            if (presentes.length) {
+              campoPot = presentes[0];
+              const srcOriginal = obterIconePotencialidade(campoPot);
+              src = typeof obterIconePotencialidadeSilhuetado === 'function'
+                ? obterIconePotencialidadeSilhuetado(campoPot, srcOriginal)
+                : srcOriginal;
+            }
           }
+          const keyAttr = campoPot && typeof chaveIconePotencialidade === 'function'
+            ? ` data-pot-key="${chaveIconePotencialidade(campoPot)}"`
+            : '';
           const htmlIcon = src
-            ? `<img class="overlap-pot-icon" src="${escapeHtmlPotencialidade(src)}" alt="">`
+            ? `<img class="overlap-pot-icon" src="${escapeHtmlPotencialidade(src)}" alt=""${keyAttr}>`
             : '<span style="font-size:20px;font-weight:900;color:#d88a10;text-shadow:0 0 2px #fff,0 1px 2px rgba(0,0,0,.45)">◆</span>';
           return L.marker(latlng, { icon: L.divIcon({ className: 'overlap-divicon', html: htmlIcon, iconSize: [24, 24], iconAnchor: [12, 12] }) });
         }
@@ -10166,43 +10277,5 @@ function hoverMinerLeave(e) {
   })();
 </script>
 
-<!-- Code injected by live-server -->
-<script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
-</script>
 </body>
 </html>
