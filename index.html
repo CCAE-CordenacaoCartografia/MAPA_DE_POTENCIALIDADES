@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1319,6 +1320,12 @@
         drop-shadow(-.75px .75px 0 #fff)
         drop-shadow(0 1px 2px rgba(0,0,0,.42));
     }
+
+    .emoji-marker .pot-marker-img[data-territorio-color] {
+      /* O PNG é recolorido por canvas no JavaScript. A variável mantém a cor vinculada ao território. */
+      color: var(--pot-territorio-cor, #0b6b2a);
+    }
+
 
     .pot-panel-icon {
       width: 24px;
@@ -2815,15 +2822,74 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     const territorioColors = [];
     let colorIndex = 0;
 
+    function normalizarValorTerritorio(valor) {
+      return String(valor ?? '').trim();
+    }
+
     function getColorForTerritorio(nome, codigo = null) {
-      let terr = territorioColors.find(t => t.nome === nome);
+      const nomeLimpo = normalizarValorTerritorio(nome);
+      const codigoLimpo = normalizarValorTerritorio(codigo);
+
+      // Evita criar itens falsos na legenda quando a feição ainda não tem
+      // Território de Desenvolvimento associado.
+      if (!nomeLimpo || nomeLimpo === 'Território' || nomeLimpo === '(sem território)') {
+        return '#0b6b2a';
+      }
+
+      let terr = territorioColors.find(t =>
+        (codigoLimpo && normalizarValorTerritorio(t.codigo) === codigoLimpo) ||
+        (!codigoLimpo && t.nome === nomeLimpo)
+      );
+
       if (!terr) {
-        const display = codigo ? `TD ${codigo} – ${nome}` : nome;
-        terr = { nome, codigo, label: display, cor: territorioPalette[colorIndex % territorioPalette.length] };
+        const display = codigoLimpo ? `TD ${codigoLimpo} – ${nomeLimpo}` : nomeLimpo;
+        terr = { nome: nomeLimpo, codigo: codigoLimpo, label: display, cor: territorioPalette[colorIndex % territorioPalette.length] };
         territorioColors.push(terr);
         colorIndex++;
       }
       return terr.cor;
+    }
+
+    function reconstruirCoresTerritoriosOficiais() {
+      if (!territoriosLayer || !territoriosLayer.eachLayer) return;
+
+      territorioColors.splice(0, territorioColors.length);
+      colorIndex = 0;
+
+      territoriosLayer.eachLayer(layer => {
+        const p = layer?.feature?.properties || {};
+        const nome = p.NM_TD || p.nome_territorio || p.TERRITORIO || '';
+        const codigo = p.fid ?? p.CD_TD ?? p.codigo_territorio ?? nome;
+        if (nome) getColorForTerritorio(nome, codigo);
+      });
+    }
+
+    function buscarFeatureTerritorioOficial(nome, codigo = '') {
+      const nomeNorm = normalizarValorTerritorio(nome).toLowerCase();
+      const codigoNorm = normalizarValorTerritorio(codigo);
+      let encontrado = null;
+
+      try {
+        if (territoriosLayer && territoriosLayer.eachLayer) {
+          territoriosLayer.eachLayer(layer => {
+            if (encontrado) return;
+            const p = layer?.feature?.properties || {};
+            const nomeLayer = normalizarValorTerritorio(p.NM_TD || p.nome_territorio || p.TERRITORIO || '').toLowerCase();
+            const codigoLayer = normalizarValorTerritorio(p.fid ?? p.CD_TD ?? p.codigo_territorio ?? '');
+            if ((codigoNorm && codigoLayer && codigoNorm === codigoLayer) || (nomeNorm && nomeLayer && nomeNorm === nomeLayer)) {
+              encontrado = layer.feature;
+            }
+          });
+        }
+      } catch (_) {}
+
+      return encontrado;
+    }
+
+    function resolverCodigoTerritorioOficial(nome, codigo = '') {
+      const feature = buscarFeatureTerritorioOficial(nome, codigo);
+      const props = feature?.properties || {};
+      return normalizarValorTerritorio(props.fid ?? props.CD_TD ?? props.codigo_territorio ?? codigo ?? '');
     }
 
     function formatNumeroPTBR(n, d = 2) {
@@ -3204,6 +3270,32 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return encontrado;
     }
 
+    function obterCorTerritorioPorProps(props = {}) {
+      const municipioLayer = buscarMunicipioLayerPorProps(props);
+      const munProps = municipioLayer?.feature?.properties || {};
+
+      // Usa somente o campo real de Território de Desenvolvimento.
+      // NÃO usa NM_RGINT/NM_RGI, pois esses campos são regiões IBGE e
+      // geravam falsos territórios como "Teresina" e "Parnaíba".
+      const nomeTerritorio =
+        munProps.NM_TD || props.NM_TD ||
+        munProps.nome_territorio || props.nome_territorio ||
+        munProps.TERRITORIO || props.TERRITORIO ||
+        '';
+
+      if (!nomeTerritorio) return '#0b6b2a';
+
+      // Importante: nunca usar o fid do município como código do território,
+      // pois isso faz cada município receber uma cor diferente.
+      const codigoInformado =
+        munProps.CD_TD ?? props.CD_TD ??
+        munProps.codigo_territorio ?? props.codigo_territorio ??
+        '';
+
+      const codigoTerritorio = resolverCodigoTerritorioOficial(nomeTerritorio, codigoInformado);
+      return getColorForTerritorio(nomeTerritorio, codigoTerritorio || nomeTerritorio);
+    }
+
     function obterDadosMunicipioAtualParaRelatorio() {
       if (!currentSelectedFeature || !currentSelectedFeature.properties) return null;
 
@@ -3289,12 +3381,25 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
     function collectMunicipiosDoTerritorio(nome, codigo, returnFeatures = false) {
       const items = [];
+      const nomeNorm = normalizeText(nome);
+      const codigoOficial = resolverCodigoTerritorioOficial(nome, codigo);
+
       try {
         if (municipiosLayer && municipiosLayer.eachLayer) {
           municipiosLayer.eachLayer(mLayer => {
             const feature = mLayer?.feature;
             const p = feature?.properties || {};
-            const match = (p.NM_TD && nome && p.NM_TD === nome) || (p.fid && codigo && p.fid === codigo);
+            const nomeMunicipioTerritorio = p.NM_TD || p.nome_territorio || p.TERRITORIO || '';
+            const nomeMunicipioNorm = normalizeText(nomeMunicipioTerritorio);
+            const codigoMunicipioTerritorio = resolverCodigoTerritorioOficial(
+              nomeMunicipioTerritorio,
+              p.CD_TD ?? p.codigo_territorio ?? ''
+            );
+
+            const match =
+              (!!nomeNorm && !!nomeMunicipioNorm && nomeNorm === nomeMunicipioNorm) ||
+              (!!codigoOficial && !!codigoMunicipioTerritorio && codigoOficial === codigoMunicipioTerritorio);
+
             if (!match) return;
             items.push(returnFeatures ? feature : (p.NM_MUN || '(sem nome)'));
           });
@@ -3312,7 +3417,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       const territorioFeature = currentSelectedFeature;
       const nome = props.NM_TD || '-';
-      const codigo = props.fid ?? props.CD_TD ?? nome;
+      const codigo = resolverCodigoTerritorioOficial(nome, props.CD_TD ?? props.codigo_territorio ?? props.fid ?? '') || nome;
       const municipiosFeatures = collectMunicipiosDoTerritorio(nome, codigo, true);
       const municipios = municipiosFeatures
         .map(f => f?.properties?.NM_MUN || '(sem nome)')
@@ -5166,13 +5271,106 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     const POT_ICON_OUTLINE_CACHE = new Map();
     const POT_ICON_OUTLINE_PENDING = new Set();
 
-    function chaveIconePotencialidade(campo) {
-      return normalizarTextoPotencialidade(campo)
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'potencialidade';
+    function normalizarCorPotencialidade(cor, fallback = '') {
+      const valor = String(cor || '').trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(valor)) return valor.toLowerCase();
+      if (/^#[0-9a-fA-F]{3}$/.test(valor)) {
+        return '#' + valor.slice(1).split('').map(c => c + c).join('').toLowerCase();
+      }
+      return fallback;
     }
 
-    function gerarIconePotencialidadeSilhuetado(chave, src) {
+    function chaveIconePotencialidade(campo, corTerritorio = '') {
+      const base = normalizarTextoPotencialidade(campo)
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'potencialidade';
+      const cor = normalizarCorPotencialidade(corTerritorio, '').replace('#', '');
+      return cor ? `${base}-${cor}` : base;
+    }
+
+    function clampPotencialidadeColor(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function hexToRgbPotencialidade(hex) {
+      const cor = normalizarCorPotencialidade(hex, '');
+      if (!cor) return null;
+      const raw = cor.replace('#', '');
+      return {
+        r: parseInt(raw.slice(0, 2), 16),
+        g: parseInt(raw.slice(2, 4), 16),
+        b: parseInt(raw.slice(4, 6), 16)
+      };
+    }
+
+    function rgbToHexPotencialidade(r, g, b) {
+      const toHex = v => clampPotencialidadeColor(Math.round(v), 0, 255).toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    function rgbToHslPotencialidade(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s;
+      const l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          default: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+
+      return { h, s, l };
+    }
+
+    function hslToRgbPotencialidade(h, s, l) {
+      let r, g, b;
+
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+      };
+    }
+
+    function fortalecerCorTerritorio(corBase, fallback = '#0b6b2a') {
+      const rgb = hexToRgbPotencialidade(corBase || fallback);
+      if (!rgb) return fallback;
+
+      const hsl = rgbToHslPotencialidade(rgb.r, rgb.g, rgb.b);
+      const s = clampPotencialidadeColor(hsl.s * 1.45 + 0.08, 0, 1);
+      const l = clampPotencialidadeColor(hsl.l * 0.62, 0.18, 0.48);
+      const forte = hslToRgbPotencialidade(hsl.h, s, l);
+      return rgbToHexPotencialidade(forte.r, forte.g, forte.b);
+    }
+
+    function gerarIconePotencialidadeSilhuetado(chave, src, corTerritorio = '') {
       if (!src || POT_ICON_OUTLINE_PENDING.has(chave) || POT_ICON_OUTLINE_CACHE.has(chave)) return;
       POT_ICON_OUTLINE_PENDING.add(chave);
 
@@ -5184,6 +5382,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
           const size = 48;
           const pad = 5;
           const drawSize = size - pad * 2;
+          const corFinal = normalizarCorPotencialidade(corTerritorio, '');
 
           const mask = document.createElement('canvas');
           mask.width = size;
@@ -5208,7 +5407,22 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
             [-1, -1], [1, -1], [-1, 1], [1, 1]
           ];
           offsets.forEach(([x, y]) => ctx.drawImage(mask, x, y));
-          ctx.drawImage(img, pad, pad, drawSize, drawSize);
+
+          if (corFinal) {
+            const colorCanvas = document.createElement('canvas');
+            colorCanvas.width = size;
+            colorCanvas.height = size;
+            const cctx = colorCanvas.getContext('2d');
+            cctx.imageSmoothingEnabled = true;
+            cctx.imageSmoothingQuality = 'high';
+            cctx.drawImage(img, pad, pad, drawSize, drawSize);
+            cctx.globalCompositeOperation = 'source-in';
+            cctx.fillStyle = corFinal;
+            cctx.fillRect(0, 0, size, size);
+            ctx.drawImage(colorCanvas, 0, 0);
+          } else {
+            ctx.drawImage(img, pad, pad, drawSize, drawSize);
+          }
 
           const dataUrl = canvas.toDataURL('image/png');
           POT_ICON_OUTLINE_CACHE.set(chave, dataUrl);
@@ -5227,10 +5441,11 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       img.src = src;
     }
 
-    function obterIconePotencialidadeSilhuetado(campo, src) {
-      const chave = chaveIconePotencialidade(campo);
+    function obterIconePotencialidadeSilhuetado(campo, src, corTerritorio = '') {
+      const cor = normalizarCorPotencialidade(corTerritorio, '');
+      const chave = chaveIconePotencialidade(campo, cor);
       if (POT_ICON_OUTLINE_CACHE.has(chave)) return POT_ICON_OUTLINE_CACHE.get(chave);
-      gerarIconePotencialidadeSilhuetado(chave, src);
+      gerarIconePotencialidadeSilhuetado(chave, src, cor);
       return src;
     }
 
@@ -5294,26 +5509,32 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       return 'Indica presença, vocação ou oportunidade de desenvolvimento dessa atividade no município, conforme a base temática do Atlas.';
     }
 
-    function criarHtmlIconePotencialidade(campo, classe = 'pot-inline-icon') {
+    function criarHtmlIconePotencialidade(campo, classe = 'pot-inline-icon', corTerritorio = '') {
       const srcOriginal = obterIconePotencialidade(campo);
       const titulo = escapeHtmlPotencialidade(campo);
       if (!srcOriginal) return `<span class="pot-icon-fallback" title="${titulo}">•</span>`;
 
-      const usarSilhuetaCache = /\b(pot-marker-img|overlap-pot-icon)\b/.test(classe);
-      const chave = usarSilhuetaCache ? chaveIconePotencialidade(campo) : '';
-      const src = usarSilhuetaCache ? obterIconePotencialidadeSilhuetado(campo, srcOriginal) : srcOriginal;
+      const usarSilhuetaCache = String(classe || '').split(/\s+/).some(c => c === 'pot-marker-img' || c === 'overlap-pot-icon');
+      const cor = usarSilhuetaCache ? normalizarCorPotencialidade(corTerritorio, '') : '';
+      const chave = usarSilhuetaCache ? chaveIconePotencialidade(campo, cor) : '';
+      const src = usarSilhuetaCache ? obterIconePotencialidadeSilhuetado(campo, srcOriginal, cor) : srcOriginal;
       const dataKey = usarSilhuetaCache ? ` data-pot-key="${chave}"` : '';
+      const dataColor = cor ? ` data-territorio-color="${cor}"` : '';
 
-      return `<img class="${classe}" src="${escapeHtmlPotencialidade(src)}" alt="${titulo}" title="${titulo}" loading="lazy"${dataKey}>`;
+      return `<img class="${classe}" src="${escapeHtmlPotencialidade(src)}" alt="${titulo}" title="${titulo}" loading="lazy"${dataKey}${dataColor}>`;
     }
 
-    function criarHtmlMarcadorPotencialidade(campo, size = 18) {
-      return `<div class="emoji-marker" style="--pot-marker-size:${size}px" title="${escapeHtmlPotencialidade(campo)}">${criarHtmlIconePotencialidade(campo, 'pot-marker-img')}</div>`;
+    function criarHtmlMarcadorPotencialidade(campo, size = 18, corTerritorio = '') {
+      const corBase = normalizarCorPotencialidade(corTerritorio, '#0b6b2a');
+      const cor = fortalecerCorTerritorio(corBase, '#0b6b2a');
+      return `<div class="emoji-marker" style="--pot-marker-size:${size}px;--pot-territorio-cor:${cor}" title="${escapeHtmlPotencialidade(campo)}">${criarHtmlIconePotencialidade(campo, 'pot-marker-img', cor)}</div>`;
     }
 
-    function criarHtmlMarcadorGrupoPotencialidades(total, size = 20) {
+    function criarHtmlMarcadorGrupoPotencialidades(total, size = 20, corTerritorio = '') {
       const texto = total > 1 ? `+${total}` : '+';
-      return `<div class="pot-plus-marker" style="--pot-marker-size:${size}px" title="${total} potencialidade(s)">${texto}</div>`;
+      const corBase = normalizarCorPotencialidade(corTerritorio, '#0b6b2a');
+      const cor = fortalecerCorTerritorio(corBase, '#0b6b2a');
+      return `<div class="pot-plus-marker" style="--pot-marker-size:${size}px;--pot-territorio-cor:${cor};background:${cor};" title="${total} potencialidade(s)">${texto}</div>`;
     }
 
     const POT_SYMBOL_BATCH_SIZE = 140;
@@ -5419,9 +5640,10 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       const size = tamanhoIconePotencialidade();
       const offset = calcularOffsetSimboloPotencialidade(index, total);
+      const corTerritorio = obterCorTerritorioPorProps(props);
       const icon = L.divIcon({
         className: 'pot-symbol-leaflet',
-        html: criarHtmlMarcadorPotencialidade(campo, size),
+        html: criarHtmlMarcadorPotencialidade(campo, size, corTerritorio),
         iconSize: [size, size],
         iconAnchor: [size / 2 - offset.x, size / 2 - offset.y],
         popupAnchor: [offset.x, -size / 2 + offset.y]
@@ -5480,9 +5702,10 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       const size = tamanhoIconePotencialidade();
       const offset = calcularOffsetSimboloPotencialidade(index, total);
+      const corTerritorio = obterCorTerritorioPorProps(props);
       const icon = L.divIcon({
         className: 'pot-symbol-leaflet',
-        html: criarHtmlMarcadorPotencialidade(campo, size),
+        html: criarHtmlMarcadorPotencialidade(campo, size, corTerritorio),
         iconSize: [size, size],
         iconAnchor: [size / 2 - offset.x, size / 2 - offset.y],
         popupAnchor: [offset.x, -size / 2 + offset.y]
@@ -5537,9 +5760,10 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       if (!center || !ativos.length) return null;
 
       const size = tamanhoIconeGrupoPotencialidades(ativos.length);
+      const corTerritorio = obterCorTerritorioPorProps(props);
       const icon = L.divIcon({
         className: 'pot-symbol-leaflet',
-        html: criarHtmlMarcadorGrupoPotencialidades(ativos.length, size),
+        html: criarHtmlMarcadorGrupoPotencialidades(ativos.length, size, corTerritorio),
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
         popupAnchor: [0, -size / 2]
@@ -6265,7 +6489,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       municipiosLayer.eachLayer(layer => {
         const p = layer?.feature?.properties || {};
         const nomeTD = p.NM_TD || '(sem território)';
-        const codTD = p.fid ?? p.CD_TD ?? nomeTD;
+        const codTD = resolverCodigoTerritorioOficial(nomeTD, p.CD_TD ?? p.codigo_territorio ?? '') || nomeTD;
         const pop = num(p.pop_censo2022);
         const pib = num(p.pib_2021);
 
@@ -6283,6 +6507,13 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         td.pop_pct_piaui = stateTotals.pop ? (td.pop / stateTotals.pop) * 100 : 0;
         td.pib_pct_piaui = stateTotals.pib ? (td.pib / stateTotals.pib) * 100 : 0;
         territoryStats.set(key, td);
+      }
+
+      // Depois que os municípios carregam, os símbolos são redesenhados
+      // para assumir a cor correta do território de cada município.
+      const camposSelecionados = getCamposPotencialidadesSelecionadas();
+      if (map.hasLayer(symbolLayerGroup) && map.hasLayer(potencialidadesLayer) && camposSelecionados.length) {
+        renderizarSimbolosPotencialidadesEmLotes(camposSelecionados);
       }
     });
 
@@ -8568,11 +8799,10 @@ function hoverMinerLeave(e) {
     })();
 
     function addLegend() {
-      if (!territorioColors.length && territoriosLayer) {
-        territoriosLayer.eachLayer(l => {
-          const p = l.feature?.properties || {};
-          getColorForTerritorio(p.NM_TD || 'Território', p.fid || '');
-        });
+      // A legenda deve ser formada apenas pela camada oficial de territórios,
+      // nunca por atributos das potencialidades ou por regiões intermediárias.
+      if (territoriosLayer && territoriosLayer.eachLayer) {
+        reconstruirCoresTerritoriosOficiais();
       }
 
       document.querySelectorAll('.legend, .legend-toggle').forEach(el => el.remove());
@@ -11114,9 +11344,17 @@ function hoverMinerLeave(e) {
     });
 
     territoriosLayer.on('data:loaded', () => {
+      reconstruirCoresTerritoriosOficiais();
       populateTerritoryFilter();
       addLegend();
       invalidateSearchIndex();
+
+      // Reaplica as cores dos territórios nos símbolos caso eles tenham sido
+      // desenhados antes do carregamento completo das camadas territoriais.
+      const camposSelecionados = getCamposPotencialidadesSelecionadas();
+      if (map.hasLayer(symbolLayerGroup) && map.hasLayer(potencialidadesLayer) && camposSelecionados.length) {
+        renderizarSimbolosPotencialidadesEmLotes(camposSelecionados);
+      }
     });
 
     [
