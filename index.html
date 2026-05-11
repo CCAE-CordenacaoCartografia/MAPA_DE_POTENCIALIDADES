@@ -2515,6 +2515,8 @@ let currentSelectedFeature = null;
     let municipioSelecionado = null;
     let municipioHoverAtual = null;
     let municipioTooltipAtual = null;
+    let balaoTooltipAtual = null;
+    let balaoLayerAtual = null;
     let territorioSelecionado = null;
     let potencialidadeSelecionada = null;
     let potencialidadesSelecionadas = new Set();
@@ -4954,16 +4956,98 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       e.target.bringToFront();
     }
 
-    function fecharTooltipMunicipio(layer) {
+    /* ============================================================
+       BALÃO/TOOLTIP ÚNICO
+       Garante que apenas uma feição por vez fique com balão aberto.
+       Vale para municípios, potencialidades e demais feições com tooltip.
+    ============================================================ */
+    function fecharBalaoLayer(layer) {
       try {
         if (layer && typeof layer.closeTooltip === 'function') layer.closeTooltip();
       } catch (_) {}
     }
 
-    function fecharTooltipMunicipioAtual() {
-      if (municipioTooltipAtual) fecharTooltipMunicipio(municipioTooltipAtual);
+    function abrirBalaoUnico(layer) {
+      if (!layer || typeof layer.openTooltip !== 'function') return;
+
+      if (balaoLayerAtual && balaoLayerAtual !== layer) {
+        fecharBalaoLayer(balaoLayerAtual);
+      }
+
+      if (municipioTooltipAtual && municipioTooltipAtual !== layer) {
+        fecharBalaoLayer(municipioTooltipAtual);
+        municipioTooltipAtual = null;
+      }
+
+      balaoLayerAtual = layer;
+      try {
+        layer.openTooltip();
+        const tt = typeof layer.getTooltip === 'function' ? layer.getTooltip() : null;
+        if (tt) balaoTooltipAtual = tt;
+      } catch (_) {}
+    }
+
+    function fecharBalaoSeForAtual(layer) {
+      if (!layer) return;
+      fecharBalaoLayer(layer);
+
+      if (balaoLayerAtual === layer) {
+        balaoLayerAtual = null;
+        balaoTooltipAtual = null;
+      }
+
+      if (municipioTooltipAtual === layer) {
+        municipioTooltipAtual = null;
+      }
+    }
+
+    function fecharBalaoAtual() {
+      if (balaoLayerAtual) fecharBalaoLayer(balaoLayerAtual);
+      balaoLayerAtual = null;
+      balaoTooltipAtual = null;
       municipioTooltipAtual = null;
     }
+
+    function fecharTooltipMunicipio(layer) {
+      fecharBalaoSeForAtual(layer);
+    }
+
+    function fecharTooltipMunicipioAtual() {
+      if (municipioTooltipAtual) fecharBalaoSeForAtual(municipioTooltipAtual);
+      municipioTooltipAtual = null;
+    }
+
+    // Controle global: quando qualquer tooltip abrir, fecha o anterior.
+    map.on('tooltipopen', function(e) {
+      const novoTooltip = e.tooltip || null;
+      const novoLayer = novoTooltip?._source || e.layer || null;
+
+      if (balaoLayerAtual && balaoLayerAtual !== novoLayer) {
+        fecharBalaoLayer(balaoLayerAtual);
+      }
+
+      if (municipioTooltipAtual && municipioTooltipAtual !== novoLayer) {
+        fecharBalaoLayer(municipioTooltipAtual);
+        municipioTooltipAtual = null;
+      }
+
+      balaoTooltipAtual = novoTooltip;
+      balaoLayerAtual = novoLayer;
+    });
+
+    map.on('tooltipclose', function(e) {
+      const tooltipFechado = e.tooltip || null;
+      const layerFechado = tooltipFechado?._source || e.layer || null;
+
+      if (tooltipFechado === balaoTooltipAtual || layerFechado === balaoLayerAtual) {
+        balaoTooltipAtual = null;
+        balaoLayerAtual = null;
+      }
+
+      if (layerFechado === municipioTooltipAtual) {
+        municipioTooltipAtual = null;
+      }
+    });
 
     function limparHoverMunicipioAtual() {
       fecharTooltipMunicipioAtual();
@@ -5004,7 +5088,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       // Abre o nome apenas no município atualmente sob o mouse.
       // Ao sair, resetHighlightMunicipio fecha explicitamente o tooltip.
-      try { layer.openTooltip(); } catch (_) {}
+      abrirBalaoUnico(layer);
 
       if (municipioSelecionado === layer) return;
 
@@ -5764,13 +5848,14 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         marker.setZIndexOffset(10000);
         const el = marker.getElement()?.querySelector('.emoji-marker');
         if (el) el.classList.add('is-hovered');
-        marker.openTooltip();
+        abrirBalaoUnico(marker);
       });
 
       marker.on('mouseout', () => {
         marker.setZIndexOffset(0);
         const el = marker.getElement()?.querySelector('.emoji-marker');
         if (el) el.classList.remove('is-hovered');
+        fecharBalaoSeForAtual(marker);
       });
 
       marker.on('click', () => {
@@ -5826,13 +5911,14 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         marker.setZIndexOffset(10000);
         const el = marker.getElement()?.querySelector('.emoji-marker');
         if (el) el.classList.add('is-hovered');
-        marker.openTooltip();
+        abrirBalaoUnico(marker);
       });
 
       marker.on('mouseout', () => {
         marker.setZIndexOffset(0);
         const el = marker.getElement()?.querySelector('.emoji-marker');
         if (el) el.classList.remove('is-hovered');
+        fecharBalaoSeForAtual(marker);
       });
 
       marker.on('click', () => {
@@ -5884,13 +5970,14 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         marker.setZIndexOffset(10000);
         const el = marker.getElement()?.querySelector('.pot-plus-marker');
         if (el) el.classList.add('is-hovered');
-        marker.openTooltip();
+        abrirBalaoUnico(marker);
       });
 
       marker.on('mouseout', () => {
         marker.setZIndexOffset(0);
         const el = marker.getElement()?.querySelector('.pot-plus-marker');
         if (el) el.classList.remove('is-hovered');
+        fecharBalaoSeForAtual(marker);
       });
 
       marker.on('click', () => {
@@ -11036,7 +11123,7 @@ function hoverMinerLeave(e) {
 
       try {
         if (item.layer?.openPopup) item.layer.openPopup();
-        else if (item.layer?.openTooltip) item.layer.openTooltip();
+        else if (item.layer?.openTooltip) abrirBalaoUnico(item.layer);
       } catch (_) {}
 
       recolherLegenda();
