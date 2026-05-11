@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2533,6 +2534,22 @@
       filter: none !important;
     }
 
+
+    /* Evita o "piscar verde": o símbolo só aparece depois de receber a cor definitiva do território. */
+    .pot-symbol-leaflet:not(.icon-ready),
+    .pot-symbol-leaflet:not(.icon-ready) .emoji-marker,
+    .emoji-marker:not(.icon-ready) {
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+
+    .pot-symbol-leaflet.icon-ready,
+    .pot-symbol-leaflet.icon-ready .emoji-marker,
+    .emoji-marker.icon-ready {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
   </style>
 </head>
 <body>
@@ -3074,7 +3091,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       // Evita criar itens falsos na legenda quando a feição ainda não tem
       // Território de Desenvolvimento associado.
       if (!nomeLimpo || nomeLimpo === 'Território' || nomeLimpo === '(sem território)') {
-        return '#0b6b2a';
+        return '';
       }
 
       let terr = territorioColors.find(t =>
@@ -3524,7 +3541,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         munProps.TERRITORIO || props.TERRITORIO ||
         '';
 
-      if (!nomeTerritorio) return '#0b6b2a';
+      if (!nomeTerritorio) return '';
 
       const nomeTerritorioNormalizado = String(nomeTerritorio)
         .normalize('NFD')
@@ -5788,6 +5805,41 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     const POT_ICON_OUTLINE_CACHE = new Map();
     const POT_ICON_OUTLINE_PENDING = new Set();
 
+
+
+    function marcarIconePotencialidadePronto(el) {
+      if (!el) return;
+      el.classList.add('icon-ready');
+      const wrapper = el.closest('.emoji-marker');
+      if (wrapper) wrapper.classList.add('icon-ready');
+      const markerEl = el.closest('.pot-symbol-leaflet, .overlap-divicon');
+      if (markerEl) markerEl.classList.add('icon-ready');
+    }
+
+    function atualizarIconesPotencialidadePorChave(chave, dataUrl = '') {
+      if (!chave || !dataUrl) return;
+      document.querySelectorAll(`img[data-pot-key="${chave}"]`).forEach(el => {
+        if (el.getAttribute('src') !== dataUrl) el.setAttribute('src', dataUrl);
+        marcarIconePotencialidadePronto(el);
+      });
+    }
+
+    function prepararMarcadorPotencialidadeIcone(marker) {
+      if (!marker || typeof marker.on !== 'function') return;
+      marker.on('add', () => {
+        const markerEl = marker.getElement?.();
+        if (!markerEl) return;
+        markerEl.querySelectorAll('img[data-pot-key]').forEach(img => {
+          const chave = img.getAttribute('data-pot-key') || '';
+          if (chave && POT_ICON_OUTLINE_CACHE.has(chave)) {
+            const dataUrl = POT_ICON_OUTLINE_CACHE.get(chave);
+            if (dataUrl && img.getAttribute('src') !== dataUrl) img.setAttribute('src', dataUrl);
+            marcarIconePotencialidadePronto(img);
+          }
+        });
+      });
+    }
+
     function normalizarCorPotencialidade(cor, fallback = '') {
       const valor = String(cor || '').trim();
       if (/^#[0-9a-fA-F]{6}$/.test(valor)) return valor.toLowerCase();
@@ -5876,7 +5928,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       };
     }
 
-    function fortalecerCorTerritorio(corBase, fallback = '#0b6b2a') {
+    function fortalecerCorTerritorio(corBase, fallback = '#64748b') {
       const rgb = hexToRgbPotencialidade(corBase || fallback);
       if (!rgb) return fallback;
 
@@ -5962,17 +6014,20 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
           const dataUrl = canvas.toDataURL('image/png');
           POT_ICON_OUTLINE_CACHE.set(chave, dataUrl);
 
-          document.querySelectorAll(`img[data-pot-key="${chave}"]`).forEach(el => {
-            if (el && el.getAttribute('src') !== dataUrl) el.setAttribute('src', dataUrl);
-          });
+          atualizarIconesPotencialidadePorChave(chave, dataUrl);
         } catch (err) {
-          // Se o canvas falhar, mantém o ícone original sem travar o mapa.
+          // Se o canvas falhar, não deixa o marcador invisível para sempre.
+          document.querySelectorAll(`img[data-pot-key="${chave}"]`).forEach(marcarIconePotencialidadePronto);
         } finally {
           POT_ICON_OUTLINE_PENDING.delete(chave);
         }
       };
 
-      img.onerror = () => POT_ICON_OUTLINE_PENDING.delete(chave);
+      img.onerror = () => {
+        // Em caso de erro no carregamento do PNG, mostra o marcador original em vez de sumir.
+        document.querySelectorAll(`img[data-pot-key="${chave}"]`).forEach(marcarIconePotencialidadePronto);
+        POT_ICON_OUTLINE_PENDING.delete(chave);
+      };
       img.src = src;
     }
 
@@ -6060,21 +6115,40 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     }
 
     function criarHtmlMarcadorPotencialidade(campo, size = 18, corTerritorio = '') {
-      const corBase = normalizarCorPotencialidade(corTerritorio, '#0b6b2a');
-      const cor = fortalecerCorTerritorio(corBase, '#0b6b2a');
-      return `<div class="emoji-marker" style="--pot-marker-size:${size}px;--pot-territorio-cor:${cor}" title="${escapeHtmlPotencialidade(campo)}">${criarHtmlIconePotencialidade(campo, 'pot-marker-img', cor)}</div>`;
+      const corBase = normalizarCorPotencialidade(corTerritorio, '');
+      const cor = corBase ? fortalecerCorTerritorio(corBase, '#64748b') : '';
+      const srcOriginal = obterIconePotencialidade(campo);
+      const chave = srcOriginal && cor ? chaveIconePotencialidade(campo, cor) : '';
+      const pronto = !!cor && (!srcOriginal || (chave && POT_ICON_OUTLINE_CACHE.has(chave)));
+      const classePronto = pronto ? ' icon-ready' : '';
+      const cssCor = cor || 'transparent';
+      return `<div class="emoji-marker${classePronto}" style="--pot-marker-size:${size}px;--pot-territorio-cor:${cssCor}" title="${escapeHtmlPotencialidade(campo)}">${criarHtmlIconePotencialidade(campo, 'pot-marker-img', cor)}</div>`;
     }
 
     function criarHtmlMarcadorGrupoPotencialidades(total, size = 20, corTerritorio = '') {
       const texto = total > 1 ? `+${total}` : '+';
-      const corBase = normalizarCorPotencialidade(corTerritorio, '#0b6b2a');
-      const cor = fortalecerCorTerritorio(corBase, '#0b6b2a');
+      const corBase = normalizarCorPotencialidade(corTerritorio, '#64748b');
+      const cor = fortalecerCorTerritorio(corBase, '#64748b');
       return `<div class="pot-plus-marker" style="--pot-marker-size:${size}px;--pot-territorio-cor:${cor};background:${cor};" title="${total} potencialidade(s)">${texto}</div>`;
     }
 
     const POT_SYMBOL_BATCH_SIZE = 140;
     const POT_SYMBOL_CLUSTER_ZOOM = 0;
     let potSymbolRenderToken = 0;
+    let municipiosDadosCarregados = false;
+    let territoriosDadosCarregados = false;
+
+    function dadosTerritoriaisProntosParaSimbolos() {
+      return municipiosDadosCarregados && territoriosDadosCarregados;
+    }
+
+    function redesenharSimbolosPotencialidadesSePronto() {
+      if (!dadosTerritoriaisProntosParaSimbolos()) return;
+      const camposSelecionados = getCamposPotencialidadesSelecionadas();
+      if (map.hasLayer(symbolLayerGroup) && map.hasLayer(potencialidadesLayer) && camposSelecionados.length) {
+        renderizarSimbolosPotencialidadesEmLotes(camposSelecionados);
+      }
+    }
 
     function getCamposPotencialidadesSelecionadas() {
       return Array.from(potencialidadesSelecionadas).filter(campo => potencialidadesCampos.includes(campo));
@@ -6175,7 +6249,9 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       const size = tamanhoIconePotencialidade();
       const offset = calcularOffsetSimboloPotencialidade(index, total);
-      const corTerritorio = obterCorTerritorioPorProps(props);
+      // Nunca usa verde provisório. Se a cor do território ainda não for identificada,
+      // usa cinza neutro para não esconder todos os símbolos.
+      const corTerritorio = obterCorTerritorioPorProps(props) || '#64748b';
       const icon = L.divIcon({
         className: 'pot-symbol-leaflet',
         html: criarHtmlMarcadorPotencialidade(campo, size, corTerritorio),
@@ -6191,6 +6267,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         keyboard: true,
         title: `${campo} - ${props.NM_MUN || ''}`
       });
+
+      prepararMarcadorPotencialidadeIcone(marker);
 
       marker.bindTooltip(`${criarHtmlIconePotencialidade(campo, 'pot-tooltip-icon')} ${escapeHtmlPotencialidade(campo)}`, {
         direction: 'top',
@@ -6238,7 +6316,9 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       const size = tamanhoIconePotencialidade();
       const offset = calcularOffsetSimboloPotencialidade(index, total);
-      const corTerritorio = obterCorTerritorioPorProps(props);
+      // Nunca usa verde provisório. Se a cor do território ainda não for identificada,
+      // usa cinza neutro para não esconder todos os símbolos.
+      const corTerritorio = obterCorTerritorioPorProps(props) || '#64748b';
       const icon = L.divIcon({
         className: 'pot-symbol-leaflet',
         html: criarHtmlMarcadorPotencialidade(campo, size, corTerritorio),
@@ -6254,6 +6334,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         keyboard: true,
         title: `${campo} - ${props.NM_MUN || ''}`
       });
+
+      prepararMarcadorPotencialidadeIcone(marker);
 
       marker.bindTooltip(`${criarHtmlIconePotencialidade(campo, 'pot-tooltip-icon')} ${escapeHtmlPotencialidade(campo)}`, {
         direction: 'top',
@@ -6535,6 +6617,9 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     function renderizarSimbolosPotencialidadesEmLotes(camposSelecionados = null) {
       const token = ++potSymbolRenderToken;
       symbolLayerGroup.clearLayers();
+
+      // Evita criar símbolos com cor provisória. Só desenha depois que municípios e territórios carregarem.
+      if (!dadosTerritoriaisProntosParaSimbolos()) return;
 
       // Proteção: se nenhuma potencialidade estiver selecionada, mantém a camada vazia.
       if (Array.isArray(camposSelecionados) && camposSelecionados.length === 0) return;
@@ -7106,12 +7191,10 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         territoryStats.set(key, td);
       }
 
-      // Depois que os municípios carregam, os símbolos são redesenhados
-      // para assumir a cor correta do território de cada município.
-      const camposSelecionados = getCamposPotencialidadesSelecionadas();
-      if (map.hasLayer(symbolLayerGroup) && map.hasLayer(potencialidadesLayer) && camposSelecionados.length) {
-        renderizarSimbolosPotencialidadesEmLotes(camposSelecionados);
-      }
+      // Depois que os municípios carregam, libera o desenho dos símbolos.
+      // Antes estava faltando esta marcação, por isso os símbolos não apareciam.
+      municipiosDadosCarregados = true;
+      redesenharSimbolosPotencialidadesSePronto();
     });
 
     {
@@ -11930,17 +12013,15 @@ function hoverMinerLeave(e) {
     });
 
     territoriosLayer.on('data:loaded', () => {
+      territoriosDadosCarregados = true;
       reconstruirCoresTerritoriosOficiais();
       populateTerritoryFilter();
       addLegend();
       invalidateSearchIndex();
 
-      // Reaplica as cores dos territórios nos símbolos caso eles tenham sido
-      // desenhados antes do carregamento completo das camadas territoriais.
-      const camposSelecionados = getCamposPotencialidadesSelecionadas();
-      if (map.hasLayer(symbolLayerGroup) && map.hasLayer(potencialidadesLayer) && camposSelecionados.length) {
-        renderizarSimbolosPotencialidadesEmLotes(camposSelecionados);
-      }
+      // Desenha os símbolos apenas depois de municípios e territórios estarem prontos,
+      // impedindo o verde provisório no carregamento inicial.
+      redesenharSimbolosPotencialidadesSePronto();
     });
 
     [
