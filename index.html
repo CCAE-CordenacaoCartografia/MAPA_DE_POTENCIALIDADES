@@ -2514,6 +2514,7 @@ let currentSelectedFeature = null;
     let currentSelectedPotencialidadeCampo = null;
     let municipioSelecionado = null;
     let municipioHoverAtual = null;
+    let municipioTooltipAtual = null;
     let territorioSelecionado = null;
     let potencialidadeSelecionada = null;
     let potencialidadesSelecionadas = new Set();
@@ -4953,7 +4954,20 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       e.target.bringToFront();
     }
 
+    function fecharTooltipMunicipio(layer) {
+      try {
+        if (layer && typeof layer.closeTooltip === 'function') layer.closeTooltip();
+      } catch (_) {}
+    }
+
+    function fecharTooltipMunicipioAtual() {
+      if (municipioTooltipAtual) fecharTooltipMunicipio(municipioTooltipAtual);
+      municipioTooltipAtual = null;
+    }
+
     function limparHoverMunicipioAtual() {
+      fecharTooltipMunicipioAtual();
+
       if (
         municipioHoverAtual &&
         municipioHoverAtual !== municipioSelecionado &&
@@ -4971,6 +4985,10 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       // Corrige o efeito acumulado: antes de aplicar hover no novo município,
       // limpa o município anterior que possa ter ficado destacado.
+      if (municipioTooltipAtual && municipioTooltipAtual !== layer) {
+        fecharTooltipMunicipio(municipioTooltipAtual);
+      }
+
       if (
         municipioHoverAtual &&
         municipioHoverAtual !== layer &&
@@ -4982,6 +5000,11 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       }
 
       municipioHoverAtual = layer;
+      municipioTooltipAtual = layer;
+
+      // Abre o nome apenas no município atualmente sob o mouse.
+      // Ao sair, resetHighlightMunicipio fecha explicitamente o tooltip.
+      try { layer.openTooltip(); } catch (_) {}
 
       if (municipioSelecionado === layer) return;
 
@@ -4996,6 +5019,13 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
     function resetHighlightMunicipio(e) {
       const layer = e.target;
+
+      // Fecha o nome do município ao sair do hover, evitando tooltip preso aberto.
+      fecharTooltipMunicipio(layer);
+
+      if (municipioTooltipAtual === layer) {
+        municipioTooltipAtual = null;
+      }
 
       if (municipioSelecionado !== layer && typeof municipiosLayer !== 'undefined' && municipiosLayer?.resetStyle) {
         municipiosLayer.resetStyle(layer);
@@ -5142,6 +5172,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       const nome = feature.properties.NM_MUN || "Município desconhecido";
 
       layer.bindTooltip(`<b>${nome}</b><br><i>Clique para selecionar</i>`, {
+        permanent: false,
+        interactive: false,
         sticky: false,
         direction: 'top',
         opacity: 0.9
@@ -5152,6 +5184,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       layer.on('click', (e) => {
         if (e?.originalEvent) L.DomEvent.stop(e.originalEvent);
         map.closePopup();
+        fecharTooltipMunicipioAtual();
+        fecharTooltipMunicipio(layer);
 
         if (municipioHoverAtual && municipioHoverAtual !== layer && typeof municipiosLayer !== 'undefined' && municipiosLayer?.resetStyle) {
           municipiosLayer.resetStyle(municipioHoverAtual);
@@ -10487,6 +10521,8 @@ function hoverMinerLeave(e) {
 
     function aplicarSelecaoMunicipio(item) {
       map.fitBounds(item.layer.getBounds(), { padding: [20, 20] });
+      fecharTooltipMunicipioAtual();
+      fecharTooltipMunicipio(item.layer);
 
       if (municipioSelecionado) municipiosLayer.resetStyle(municipioSelecionado);
       if (territorioSelecionado) resetarSelecaoTerritorio();
@@ -10975,6 +11011,7 @@ function hoverMinerLeave(e) {
 
       if (territorioSelecionado) resetarSelecaoTerritorio();
       if (municipioSelecionado) {
+        fecharTooltipMunicipio(municipioSelecionado);
         municipiosLayer.resetStyle(municipioSelecionado);
         municipioSelecionado = null;
       }
@@ -11326,6 +11363,7 @@ function hoverMinerLeave(e) {
       }
 
       if (municipioSelecionado) {
+        fecharTooltipMunicipio(municipioSelecionado);
         municipiosLayer.resetStyle(municipioSelecionado);
         municipioSelecionado = null;
       }
@@ -11361,6 +11399,7 @@ function hoverMinerLeave(e) {
 
       if (e.key === "Escape" && municipioSelecionado) {
         municipioSelecionado.closePopup();
+        fecharTooltipMunicipio(municipioSelecionado);
         municipiosLayer.resetStyle(municipioSelecionado);
         municipioSelecionado = null;
       }
@@ -11396,6 +11435,7 @@ function hoverMinerLeave(e) {
       }
 
       if (municipioSelecionado) {
+        fecharTooltipMunicipio(municipioSelecionado);
         municipiosLayer.resetStyle(municipioSelecionado);
         municipioSelecionado = null;
       }
