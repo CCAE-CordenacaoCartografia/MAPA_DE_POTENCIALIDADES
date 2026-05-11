@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -272,18 +273,6 @@
       background: #095721;
       border-color: #095721;
     }
-
-    .clear-btn {
-      width: 100%;
-      border: 1px solid #b8d3dd;
-      background: #eef8fa;
-      color: #335b67;
-      padding: 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
     #listaPotencialidades {
       max-height: 500px;
       overflow-y: auto;
@@ -291,6 +280,140 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+
+    /* Painéis expansivos do menu lateral */
+    .expansive-section,
+    .territorios-section,
+    .potencialidades-section,
+    .camadas-section {
+      border: 1px solid #e4ebf1;
+      border-radius: 15px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 1px 5px rgba(15, 23, 42, .06);
+    }
+
+    .expansive-toggle,
+    .territorios-toggle,
+    .potencialidades-toggle,
+    .camadas-toggle {
+      width: 100%;
+      border: none;
+      background: linear-gradient(90deg, #0b6b2a, #178a45);
+      color: #fff;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+
+
+    /* Cores dos painéis expansivos do menu lateral */
+    .territorios-toggle {
+      background: linear-gradient(90deg, #64748b, #94a3b8);
+    }
+
+    .potencialidades-toggle {
+      background: linear-gradient(90deg, #0b6b2a, #178a45);
+    }
+
+    .camadas-toggle {
+      background: linear-gradient(90deg, #c98910, #f2c230);
+    }
+
+    .camadas-section .mini-action-btn.primary,
+    .camadas-section .chip.active {
+      background: #c98910;
+      border-color: #c98910;
+      color: #fff;
+    }
+
+    .camadas-section .mini-action-btn.primary:hover {
+      background: #a86f0c;
+      border-color: #a86f0c;
+    }
+
+    .territorios-section .select:focus {
+      border-color: #64748b;
+      box-shadow: 0 0 0 3px rgba(100, 116, 139, .18);
+    }
+
+    .expansive-toggle h3,
+    .territorios-toggle h3,
+    .potencialidades-toggle h3,
+    .camadas-toggle h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .expansive-toggle-hint,
+    .territorios-toggle-hint,
+    .potencialidades-toggle-hint,
+    .camadas-toggle-hint {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      color: rgba(255,255,255,.82);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .expansive-toggle-icon,
+    .territorios-toggle-icon,
+    .potencialidades-toggle-icon,
+    .camadas-toggle-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.36);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      line-height: 1;
+      transition: transform .22s ease;
+    }
+
+    .expansive-content,
+    .territorios-content,
+    .potencialidades-content,
+    .camadas-content {
+      max-height: 680px;
+      opacity: 1;
+      padding: 12px;
+      overflow: hidden;
+      transition: max-height .28s ease, opacity .20s ease, padding .20s ease;
+    }
+
+    .expansive-section.is-collapsed .expansive-content,
+    .territorios-section.is-collapsed .territorios-content,
+    .potencialidades-section.is-collapsed .potencialidades-content,
+    .camadas-section.is-collapsed .camadas-content {
+      max-height: 0 !important;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      pointer-events: none;
+    }
+
+    .expansive-section.is-collapsed .expansive-toggle-icon,
+    .territorios-section.is-collapsed .territorios-toggle-icon,
+    .potencialidades-section.is-collapsed .potencialidades-toggle-icon,
+    .camadas-section.is-collapsed .camadas-toggle-icon {
+      transform: rotate(-90deg);
+    }
+
+    .potencialidades-section .pot-actions,
+    .camadas-section .view-actions {
+      margin-top: 0;
     }
 
     .pot-btn {
@@ -2049,7 +2172,6 @@
         font-size: 13px !important;
       }
 
-      .clear-btn,
       .mini-action-btn,
       .download-box button {
         min-height: 42px !important;
@@ -2357,31 +2479,48 @@
       </div>
 
       <div class="panel-body">
-        <div class="section">
-          <h3>Territórios</h3>
-          <select class="select" id="filtroTerritorio">
-            <option value="">Todos os territórios</option>
-          </select>
-        </div>
-
-        <div class="section">
-          <h3>Potencialidades</h3>
-          <div class="pot-actions">
-            <button type="button" class="mini-action-btn primary" id="btnAtivarTodasPotencialidades">Ativar todas</button>
-            <button type="button" class="mini-action-btn" id="btnDesativarPotencialidades">Desativar todas</button>
-          </div>
-          <div id="listaPotencialidades">
-            <div class="muted">Carregando potencialidades...</div>
+        <div class="section territorios-section is-collapsed" id="painelTerritorios">
+          <button type="button" class="territorios-toggle" id="togglePainelTerritorios" aria-expanded="false" aria-controls="conteudoPainelTerritorios">
+            <h3>Territórios</h3>
+            <span class="territorios-toggle-hint">Expandir/recolher</span>
+            <span class="territorios-toggle-icon" aria-hidden="true">▾</span>
+          </button>
+          <div class="territorios-content" id="conteudoPainelTerritorios">
+            <select class="select" id="filtroTerritorio">
+              <option value="">Todos os territórios</option>
+            </select>
           </div>
         </div>
 
-        <div class="section">
-          <h3>Modo de visualização</h3>
-          <div class="view-actions">
-            <button type="button" class="mini-action-btn primary" id="btnAtivarTodasCamadas">Ativar todas</button>
-            <button type="button" class="mini-action-btn" id="btnDesativarTodasCamadas">Desativar todas</button>
+        <div class="section potencialidades-section is-collapsed" id="painelPotencialidades">
+          <button type="button" class="potencialidades-toggle" id="togglePainelPotencialidades" aria-expanded="false" aria-controls="conteudoPainelPotencialidades">
+            <h3>Potencialidades</h3>
+            <span class="potencialidades-toggle-hint">Expandir/recolher</span>
+            <span class="potencialidades-toggle-icon" aria-hidden="true">▾</span>
+          </button>
+          <div class="potencialidades-content" id="conteudoPainelPotencialidades">
+            <div class="pot-actions">
+              <button type="button" class="mini-action-btn primary" id="btnAtivarTodasPotencialidades">Ativar todas</button>
+              <button type="button" class="mini-action-btn" id="btnDesativarPotencialidades">Desativar todas</button>
+            </div>
+            <div id="listaPotencialidades">
+              <div class="muted">Carregando potencialidades...</div>
+            </div>
           </div>
-          <div class="chips">
+        </div>
+
+        <div class="section camadas-section is-collapsed" id="painelCamadas">
+          <button type="button" class="camadas-toggle" id="togglePainelCamadas" aria-expanded="false" aria-controls="conteudoPainelCamadas">
+            <h3>Camadas</h3>
+            <span class="camadas-toggle-hint">Expandir/recolher</span>
+            <span class="camadas-toggle-icon" aria-hidden="true">▾</span>
+          </button>
+          <div class="camadas-content" id="conteudoPainelCamadas">
+            <div class="view-actions">
+              <button type="button" class="mini-action-btn primary" id="btnAtivarTodasCamadas">Ativar todas</button>
+              <button type="button" class="mini-action-btn" id="btnDesativarTodasCamadas">Desativar todas</button>
+            </div>
+            <div class="chips">
             <div class="chip active" data-view="territorios">Territórios</div>
             <div class="chip" data-view="biomas">Biomas</div>
             <div class="chip" data-view="municipios">Municípios</div>
@@ -2400,17 +2539,10 @@
             <div class="chip" data-view="aerodromosPrivados">Aeródromos Privados</div>
             <div class="chip" data-view="portos">Portos</div>
             <div class="chip" data-view="litologia">Litologia</div>
-            <div class="chip" data-view="mineracao">Mineração</div>
+              <div class="chip" data-view="mineracao">Mineração</div>
+            </div>
           </div>
         </div>
-
-        <div class="section">
-          <h3>Busca rápida</h3>
-          <input class="field" id="sidebarSearch" placeholder="Buscar município, território ou feição..." />
-          <div id="sidebarListaMunicipios" class="sidebar-suggestions"></div>
-        </div>
-
-        <button class="clear-btn" id="limparFiltros">Limpar filtros</button>
       </div>
     </aside>
 
@@ -6818,6 +6950,27 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
     document.getElementById('btnAtivarTodasPotencialidades')?.addEventListener('click', ativarTodasPotencialidades);
     document.getElementById('btnDesativarPotencialidades')?.addEventListener('click', desativarTodasPotencialidades);
+
+    const painelTerritorios = document.getElementById('painelTerritorios');
+    const togglePainelTerritorios = document.getElementById('togglePainelTerritorios');
+    togglePainelTerritorios?.addEventListener('click', () => {
+      const recolhido = painelTerritorios?.classList.toggle('is-collapsed');
+      togglePainelTerritorios.setAttribute('aria-expanded', String(!recolhido));
+    });
+
+    const painelPotencialidades = document.getElementById('painelPotencialidades');
+    const togglePainelPotencialidades = document.getElementById('togglePainelPotencialidades');
+    togglePainelPotencialidades?.addEventListener('click', () => {
+      const recolhido = painelPotencialidades?.classList.toggle('is-collapsed');
+      togglePainelPotencialidades.setAttribute('aria-expanded', String(!recolhido));
+    });
+
+    const painelCamadas = document.getElementById('painelCamadas');
+    const togglePainelCamadas = document.getElementById('togglePainelCamadas');
+    togglePainelCamadas?.addEventListener('click', () => {
+      const recolhido = painelCamadas?.classList.toggle('is-collapsed');
+      togglePainelCamadas.setAttribute('aria-expanded', String(!recolhido));
+    });
 
     const baseMaps = {
       "OpenStreetMap": osmLayer,
@@ -11418,18 +11571,6 @@ function hoverMinerLeave(e) {
         }
       });
     }
-
-    if (sidebarSearch) {
-      sidebarSearch.addEventListener('input', debounce(() => renderSearchSuggestions(sidebarSearch, sidebarListaMunicipiosEl), 420));
-      bindSearchKeyboard(sidebarSearch, sidebarListaMunicipiosEl);
-
-      document.addEventListener('click', (e) => {
-        if (sidebarListaMunicipiosEl && !sidebarListaMunicipiosEl.contains(e.target) && e.target !== sidebarSearch) {
-          sidebarListaMunicipiosEl.style.display = 'none';
-        }
-      });
-    }
-
     const thematicLayers = {
       territorios: territoriosLayer,
       biomas: null,
@@ -11519,47 +11660,6 @@ function hoverMinerLeave(e) {
           limparSimbolosPotencialidades();
         }
       }
-    });
-
-
-    document.getElementById('limparFiltros')?.addEventListener('click', () => {
-      if (filtroTerritorio) filtroTerritorio.value = '';
-      if (globalSearch) globalSearch.value = '';
-      if (sidebarSearch) sidebarSearch.value = '';
-      if (searchMunicipio) searchMunicipio.value = '';
-      if (listaMunicipiosEl) listaMunicipiosEl.style.display = 'none';
-      if (globalSearchSuggestionsEl) globalSearchSuggestionsEl.style.display = 'none';
-      if (sidebarListaMunicipiosEl) sidebarListaMunicipiosEl.style.display = 'none';
-      if (searchHighlightLayer) searchHighlightLayer.clearLayers();
-      potencialidadeSelecionada = null;
-      if (!bloquearAtivacaoAutomaticaTodasPotencialidades) {
-        potencialidadesSelecionadas = new Set(potencialidadesCampos);
-      }
-      currentSelectedFeature = null;
-      currentSelectedType = null;
-
-      resetarPotencialidades();
-
-      if (territorioSelecionado) {
-        resetarSelecaoTerritorio();
-      }
-
-      if (municipioSelecionado) {
-        fecharTooltipMunicipio(municipioSelecionado);
-        municipiosLayer.resetStyle(municipioSelecionado);
-        municipioSelecionado = null;
-      }
-
-      recolherLegenda();
-
-      [territoriosLayer, municipiosLayer, potencialidadesLayer].forEach(lyr => { if (lyr && !map.hasLayer(lyr)) map.addLayer(lyr); });
-      if (!map.hasLayer(symbolLayerGroup)) map.addLayer(symbolLayerGroup);
-      sincronizarChipsVisualizacao();
-
-      try {
-        const group = new L.featureGroup([territoriosLayer, municipiosLayer]);
-        map.fitBounds(group.getBounds(), { padding: [20, 20] });
-      } catch (_) {}
     });
 
     document.getElementById('btnFocusPiaui')?.addEventListener('click', () => {
