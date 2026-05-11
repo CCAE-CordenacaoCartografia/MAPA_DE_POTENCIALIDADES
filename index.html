@@ -2,6 +2,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2512,6 +2513,7 @@ let currentSelectedFeature = null;
     let currentSelectedType = null;
     let currentSelectedPotencialidadeCampo = null;
     let municipioSelecionado = null;
+    let municipioHoverAtual = null;
     let territorioSelecionado = null;
     let potencialidadeSelecionada = null;
     let potencialidadesSelecionadas = new Set();
@@ -4951,8 +4953,57 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       e.target.bringToFront();
     }
 
+    function limparHoverMunicipioAtual() {
+      if (
+        municipioHoverAtual &&
+        municipioHoverAtual !== municipioSelecionado &&
+        typeof municipiosLayer !== 'undefined' &&
+        municipiosLayer?.resetStyle
+      ) {
+        municipiosLayer.resetStyle(municipioHoverAtual);
+      }
+
+      municipioHoverAtual = null;
+    }
+
+    function destacarMunicipioHover(e) {
+      const layer = e.target;
+
+      // Corrige o efeito acumulado: antes de aplicar hover no novo município,
+      // limpa o município anterior que possa ter ficado destacado.
+      if (
+        municipioHoverAtual &&
+        municipioHoverAtual !== layer &&
+        municipioHoverAtual !== municipioSelecionado &&
+        typeof municipiosLayer !== 'undefined' &&
+        municipiosLayer?.resetStyle
+      ) {
+        municipiosLayer.resetStyle(municipioHoverAtual);
+      }
+
+      municipioHoverAtual = layer;
+
+      if (municipioSelecionado === layer) return;
+
+      layer.setStyle({
+        weight: 4,
+        color: '#ff6600',
+        fillColor: '#ff6600',
+        fillOpacity: 0.5
+      });
+      layer.bringToFront();
+    }
+
     function resetHighlightMunicipio(e) {
-      if (municipioSelecionado !== e.target) municipiosLayer.resetStyle(e.target);
+      const layer = e.target;
+
+      if (municipioSelecionado !== layer && typeof municipiosLayer !== 'undefined' && municipiosLayer?.resetStyle) {
+        municipiosLayer.resetStyle(layer);
+      }
+
+      if (municipioHoverAtual === layer) {
+        municipioHoverAtual = null;
+      }
     }
 
     const TERRITORIO_INATIVO_STYLE = {
@@ -5096,11 +5147,16 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         opacity: 0.9
       });
 
-      layer.on({ mouseover: highlightFeature, mouseout: resetHighlightMunicipio });
+      layer.on({ mouseover: destacarMunicipioHover, mouseout: resetHighlightMunicipio });
 
       layer.on('click', (e) => {
         if (e?.originalEvent) L.DomEvent.stop(e.originalEvent);
         map.closePopup();
+
+        if (municipioHoverAtual && municipioHoverAtual !== layer && typeof municipiosLayer !== 'undefined' && municipiosLayer?.resetStyle) {
+          municipiosLayer.resetStyle(municipioHoverAtual);
+        }
+        municipioHoverAtual = null;
 
         if (territorioSelecionado) {
           resetarSelecaoTerritorio();
@@ -5125,6 +5181,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         click: function(e) {
           if (e?.originalEvent) L.DomEvent.stop(e.originalEvent);
           map.closePopup();
+          limparHoverMunicipioAtual();
 
           const territorioNome = feature.properties?.NM_TD;
           const territorioCodigo = feature.properties?.fid;
@@ -11298,6 +11355,10 @@ function hoverMinerLeave(e) {
     });
 
     document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        limparHoverMunicipioAtual();
+      }
+
       if (e.key === "Escape" && municipioSelecionado) {
         municipioSelecionado.closePopup();
         municipiosLayer.resetStyle(municipioSelecionado);
@@ -11327,6 +11388,8 @@ function hoverMinerLeave(e) {
       if (t && (t.classList?.contains('leaflet-interactive') || t.closest?.('.leaflet-interactive'))) {
         return;
       }
+
+      limparHoverMunicipioAtual();
 
       if (territorioSelecionado) {
         resetarSelecaoTerritorio();
