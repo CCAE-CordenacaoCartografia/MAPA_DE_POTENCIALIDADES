@@ -326,11 +326,22 @@
       background: linear-gradient(90deg, #c98910, #f2c230);
     }
 
-    .camadas-section .mini-action-btn.primary,
-    .camadas-section .chip.active {
+    .camadas-section .mini-action-btn.primary {
       background: #c98910;
       border-color: #c98910;
       color: #fff;
+    }
+
+    .camadas-section .chip.active {
+      background: #1f77b4;
+      border-color: #1f77b4;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(31, 119, 180, .18);
+    }
+
+    .camadas-section .chip.active:hover {
+      background: #155f92;
+      border-color: #155f92;
     }
 
     .camadas-section .mini-action-btn.primary:hover {
@@ -411,9 +422,88 @@
       transform: rotate(-90deg);
     }
 
+
+    /* Territórios: expansível, exibindo diretamente a lista de territórios ao abrir */
+    .territorios-section .territorios-content {
+      overflow: hidden;
+    }
+
+    .territory-hidden-select {
+      display: none !important;
+    }
+
+    .territorios-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .territorio-item {
+      width: 100%;
+      border: 1px solid #dbe3ea;
+      background: #fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 13.5px;
+      color: #334155;
+      transition: .2s ease;
+    }
+
+    .territorio-item:hover {
+      background: #f8fafc;
+      border-color: #b8c5d2;
+      transform: translateX(2px);
+    }
+
+    .territorio-item.active {
+      background: linear-gradient(90deg, #64748b, #94a3b8);
+      color: #fff;
+      border-color: #64748b;
+      font-weight: 800;
+      box-shadow: 0 0 0 3px rgba(100, 116, 139, .18), 0 4px 12px rgba(0,0,0,.12);
+    }
+
+    .territorio-item .territorio-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 2px solid rgba(255,255,255,.9);
+      box-shadow: 0 0 0 1px rgba(15,23,42,.18);
+      flex: 0 0 20px;
+    }
+
+    .territorio-item span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      line-height: 1.2;
+    }
+
+    .territorios-section .territorios-actions,
     .potencialidades-section .pot-actions,
     .camadas-section .view-actions {
       margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .territorios-section .mini-action-btn.primary {
+      background: #64748b;
+      border-color: #64748b;
+      color: #fff;
+    }
+
+    .territorios-section .mini-action-btn.primary:hover {
+      background: #475569;
+      border-color: #475569;
     }
 
     .pot-btn {
@@ -2184,7 +2274,7 @@
         bottom: var(--mobile-safe-bottom);
         z-index: 8100;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 7px;
         padding: 7px;
         border-radius: 18px;
@@ -2205,8 +2295,7 @@
       }
 
       body.mobile-panel-filters .atlas-mobile-nav [data-mobile-panel="filters"],
-      body.mobile-panel-info .atlas-mobile-nav [data-mobile-panel="info"],
-      body.mobile-camadas-open .atlas-mobile-nav [data-mobile-panel="layers"] {
+      body.mobile-panel-info .atlas-mobile-nav [data-mobile-panel="info"] {
         background: #0b6b2a;
         color: #fff;
         border-color: #0b6b2a;
@@ -2221,8 +2310,7 @@
       }
 
       body.mobile-panel-filters .atlas-mobile-backdrop,
-      body.mobile-panel-info .atlas-mobile-backdrop,
-      body.mobile-camadas-open .atlas-mobile-backdrop {
+      body.mobile-panel-info .atlas-mobile-backdrop {
         display: block;
       }
 
@@ -2272,7 +2360,7 @@
       }
 
       body.mobile-camadas-open #camadasWrapper {
-        display: block !important;
+        display: none !important;
       }
 
       #camadasHeader {
@@ -2486,9 +2574,16 @@
             <span class="territorios-toggle-icon" aria-hidden="true">▾</span>
           </button>
           <div class="territorios-content" id="conteudoPainelTerritorios">
-            <select class="select" id="filtroTerritorio">
+            <div class="territorios-actions">
+              <button type="button" class="mini-action-btn primary" id="btnAtivarTodosTerritorios">Ativar todas</button>
+              <button type="button" class="mini-action-btn" id="btnDesativarTodosTerritorios">Desativar todas</button>
+            </div>
+            <select class="select territory-hidden-select" id="filtroTerritorio" aria-label="Selecionar território">
               <option value="">Todos os territórios</option>
             </select>
+            <div class="territorios-lista" id="listaTerritorios">
+              <div class="muted">Carregando territórios...</div>
+            </div>
           </div>
         </div>
 
@@ -2882,6 +2977,7 @@ let currentSelectedFeature = null;
     const infoBody = document.getElementById('infoBody');
     const infoPanelEl = document.querySelector('.info-panel');
     const filtroTerritorio = document.getElementById('filtroTerritorio');
+    const listaTerritorios = document.getElementById('listaTerritorios');
     const globalSearch = document.getElementById('globalSearch');
     const globalSearchSuggestionsEl = document.getElementById('globalSearchSuggestions');
     const sidebarSearch = document.getElementById('sidebarSearch');
@@ -5314,9 +5410,45 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       }
 
       document.querySelectorAll('.territorio-item').forEach(item => {
-        item.style.fontWeight = 'normal';
-        item.style.color = '';
+        item.classList.remove('active');
+        item.style.opacity = '';
       });
+    }
+
+    function ativarTodosTerritorios() {
+      if (typeof territoriosLayer !== 'undefined' && territoriosLayer && !map.hasLayer(territoriosLayer)) {
+        map.addLayer(territoriosLayer);
+      }
+
+      if (filtroTerritorio) filtroTerritorio.value = '';
+      resetarSelecaoTerritorio();
+      resetarPotencialidades();
+
+      try {
+        const bounds = territoriosLayer?.getBounds?.();
+        if (bounds && bounds.isValid && bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
+      } catch (_) {}
+
+      if (typeof sincronizarChipsVisualizacao === 'function') sincronizarChipsVisualizacao();
+    }
+
+    function desativarTodosTerritorios() {
+      if (filtroTerritorio) filtroTerritorio.value = '';
+      resetarSelecaoTerritorio();
+      resetarPotencialidades();
+
+      if (typeof territoriosLayer !== 'undefined' && territoriosLayer && map.hasLayer(territoriosLayer)) {
+        map.removeLayer(territoriosLayer);
+      }
+
+      document.querySelectorAll('.territorio-item').forEach(item => {
+        item.classList.remove('active');
+        item.style.opacity = '.55';
+      });
+
+      if (typeof sincronizarChipsVisualizacao === 'function') sincronizarChipsVisualizacao();
     }
 
     function resetHighlightTerritorio(e) {
@@ -5361,18 +5493,81 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       };
     }
 
+    function numeroOrdemTerritorio(t) {
+      const possiveisValores = [t?.codigo, t?.label, t?.nome];
+      for (const valor of possiveisValores) {
+        const texto = String(valor ?? '').trim();
+        const match = texto.match(/\d+/);
+        if (match) return Number(match[0]);
+      }
+      return Number.POSITIVE_INFINITY;
+    }
+
+
+    function fecharPainelMobileAposSelecaoTerritorio() {
+      const emLayoutMobile = window.matchMedia
+        ? window.matchMedia('(max-width: 760px), (max-height: 520px) and (pointer: coarse)').matches
+        : window.innerWidth <= 760;
+
+      if (!emLayoutMobile) return;
+
+      document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
+
+      document.querySelectorAll('.atlas-mobile-nav [data-mobile-panel]').forEach(btn => {
+        btn.setAttribute('aria-pressed', 'false');
+      });
+
+      window.setTimeout(() => {
+        try { if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize(false); } catch (_) {}
+      }, 90);
+    }
+
     function populateTerritoryFilter() {
-      if (!filtroTerritorio) return;
-      filtroTerritorio.innerHTML = '<option value="">Todos os territórios</option>';
-      territorioColors
+      const territoriosOrdenados = territorioColors
         .slice()
-        .sort((a, b) => String(a.label).localeCompare(String(b.label), 'pt-BR'))
-        .forEach(t => {
+        .sort((a, b) => {
+          const na = numeroOrdemTerritorio(a);
+          const nb = numeroOrdemTerritorio(b);
+          if (na !== nb) return na - nb;
+          return String(a.label).localeCompare(String(b.label), 'pt-BR', { numeric: true, sensitivity: 'base' });
+        });
+
+      if (filtroTerritorio) {
+        filtroTerritorio.innerHTML = '<option value="">Todos os territórios</option>';
+        territoriosOrdenados.forEach(t => {
           const option = document.createElement('option');
           option.value = t.nome;
           option.textContent = t.label;
           filtroTerritorio.appendChild(option);
         });
+      }
+
+      if (listaTerritorios) {
+        listaTerritorios.innerHTML = '';
+
+        if (!territoriosOrdenados.length) {
+          listaTerritorios.innerHTML = '<div class="muted">Carregando territórios...</div>';
+          return;
+        }
+
+        territoriosOrdenados.forEach(t => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'territorio-item';
+          item.dataset.nome = t.nome;
+          item.innerHTML = `<span class="territorio-swatch" style="background:${t.cor};"></span><span>${t.label}</span>`;
+          item.addEventListener('click', () => {
+            if (typeof territoriosLayer !== 'undefined' && territoriosLayer && !map.hasLayer(territoriosLayer)) {
+              map.addLayer(territoriosLayer);
+            }
+            if (filtroTerritorio) filtroTerritorio.value = t.nome;
+            highlightTerritory(t.nome);
+            if (typeof sincronizarChipsVisualizacao === 'function') sincronizarChipsVisualizacao();
+            fecharPainelMobileAposSelecaoTerritorio();
+          });
+          listaTerritorios.appendChild(item);
+        });
+      }
     }
 
     function highlightTerritory(nome) {
@@ -5395,9 +5590,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       document.querySelectorAll('.territorio-item').forEach(item => {
         const ativo = item.getAttribute('data-nome') === nome;
-        item.style.fontWeight = ativo ? 'bold' : 'normal';
-        item.style.color = ativo ? '#000' : '';
-        item.style.opacity = ativo ? '1' : '.55';
+        item.classList.toggle('active', ativo);
+        item.style.opacity = ativo ? '1' : '.72';
       });
     }
 
@@ -6950,6 +7144,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
     document.getElementById('btnAtivarTodasPotencialidades')?.addEventListener('click', ativarTodasPotencialidades);
     document.getElementById('btnDesativarPotencialidades')?.addEventListener('click', desativarTodasPotencialidades);
+    document.getElementById('btnAtivarTodosTerritorios')?.addEventListener('click', ativarTodosTerritorios);
+    document.getElementById('btnDesativarTodosTerritorios')?.addEventListener('click', desativarTodosTerritorios);
 
     const painelTerritorios = document.getElementById('painelTerritorios');
     const togglePainelTerritorios = document.getElementById('togglePainelTerritorios');
@@ -11556,7 +11752,12 @@ function hoverMinerLeave(e) {
           resetarPotencialidades();
           return;
         }
+        if (typeof territoriosLayer !== 'undefined' && territoriosLayer && !map.hasLayer(territoriosLayer)) {
+          map.addLayer(territoriosLayer);
+        }
         highlightTerritory(valor);
+        if (typeof sincronizarChipsVisualizacao === 'function') sincronizarChipsVisualizacao();
+        fecharPainelMobileAposSelecaoTerritorio();
         recolherLegenda();
       });
     }
@@ -11834,8 +12035,7 @@ function hoverMinerLeave(e) {
         const target = btn.getAttribute('data-mobile-panel');
         const active =
           (target === 'filters' && document.body.classList.contains('mobile-panel-filters')) ||
-          (target === 'info' && document.body.classList.contains('mobile-panel-info')) ||
-          (target === 'layers' && document.body.classList.contains('mobile-camadas-open'));
+          (target === 'info' && document.body.classList.contains('mobile-panel-info'));
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
     }
@@ -11887,8 +12087,7 @@ function hoverMinerLeave(e) {
         nav.setAttribute('aria-label', 'Controles móveis do mapa');
         nav.innerHTML =
           '<button type="button" data-mobile-panel="filters" aria-pressed="false">☰ Filtros</button>' +
-          '<button type="button" data-mobile-panel="info" aria-pressed="false">ⓘ Info</button>' +
-          '<button type="button" data-mobile-panel="layers" aria-pressed="false">▦ Camadas</button>';
+          '<button type="button" data-mobile-panel="info" aria-pressed="false">ⓘ Info</button>';
         nav.addEventListener('click', function (event) {
           const btn = event.target.closest('[data-mobile-panel]');
           if (!btn) return;
