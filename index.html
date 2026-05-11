@@ -2522,6 +2522,14 @@ let currentSelectedFeature = null;
     let potencialidadesSelecionadas = new Set();
     let potencialidadesEscopoAtual = null;
     let potencialidadesCampos = [];
+
+    /*
+      Quando o usuário clica em "Desativar todas", o Atlas não deve religar
+      automaticamente as potencialidades por clique em município, território,
+      zoom, ESC, limpar filtros ou troca de visualização.
+      Elas só voltam todas quando o usuário clicar no botão "Ativar todas".
+    */
+    let bloquearAtivacaoAutomaticaTodasPotencialidades = false;
     let highlightedIndex = -1;
 
     const symbolLayerGroup = L.layerGroup().addTo(map);
@@ -3289,6 +3297,15 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         '';
 
       if (!nomeTerritorio) return '#0b6b2a';
+
+      const nomeTerritorioNormalizado = String(nomeTerritorio)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+
+      // Cor específica para os símbolos de potencialidade do território Vale do Sambito.
+      if (nomeTerritorioNormalizado === 'vale do sambito') return '#FFA500';
 
       // Importante: nunca usar o fid do município como código do território,
       // pois isso faz cada município receber uma cor diferente.
@@ -5276,9 +5293,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         }
         municipioHoverAtual = null;
 
-        if (territorioSelecionado) {
-          resetarSelecaoTerritorio();
-        }
+        // Mantém o território selecionado ao clicar em município.
+        // Assim, o território ativo continua destacado e os demais permanecem cinza.
 
         if (municipioSelecionado && municipioSelecionado !== layer) {
           municipiosLayer.resetStyle(municipioSelecionado);
@@ -5539,6 +5555,24 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       if (!rgb) return fallback;
 
       const hsl = rgbToHslPotencialidade(rgb.r, rgb.g, rgb.b);
+
+      /*
+        Ajuste específico dos símbolos das potencialidades:
+        quando o território tem cor amarela, o símbolo estava ficando muito claro
+        sobre o fundo do mapa. Mantém o território como está e escurece apenas
+        a cor usada nos ícones/símbolos desse território.
+      */
+      const ehAmareloOuDourado =
+        hsl.h >= 0.105 &&
+        hsl.h <= 0.185 &&
+        rgb.r >= 145 &&
+        rgb.g >= 110 &&
+        rgb.b <= 140;
+
+      if (ehAmareloOuDourado) {
+        return '#FFA500';
+      }
+
       const s = clampPotencialidadeColor(hsl.s * 1.45 + 0.08, 0, 1);
       const l = clampPotencialidadeColor(hsl.l * 0.62, 0.18, 0.48);
       const forte = hslToRgbPotencialidade(hsl.h, s, l);
@@ -6083,16 +6117,40 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     function aplicarPotencialidadesDoMunicipio(props = {}) {
       const campos = obterCamposPotencialidadesMunicipio(props);
       definirEscopoPotencialidadesMunicipio(props);
-      potencialidadesSelecionadas = new Set(campos);
-      potencialidadeSelecionada = campos[0] || null;
+
+      if (bloquearAtivacaoAutomaticaTodasPotencialidades) {
+        // Mantém desligado após "Desativar todas".
+        // Se o usuário ativou manualmente uma potencialidade específica,
+        // preserva somente as que existem no município clicado.
+        const selecionadasAtuais = getCamposPotencialidadesSelecionadas();
+        potencialidadesSelecionadas = new Set(
+          selecionadasAtuais.filter(campo => campos.includes(campo))
+        );
+      } else {
+        potencialidadesSelecionadas = new Set(campos);
+      }
+
+      potencialidadeSelecionada = getCamposPotencialidadesSelecionadas()[0] || null;
       aplicarPotencialidadesSelecionadas({ ajustarZoom: false, atualizarPainel: false, manterSelecaoAtual: true });
     }
 
     function aplicarPotencialidadesDoTerritorio(nome, codigo) {
       const dados = obterCamposPotencialidadesTerritorio(nome, codigo);
       definirEscopoPotencialidadesTerritorio(nome, codigo, dados.municipiosFeatures);
-      potencialidadesSelecionadas = new Set(dados.campos);
-      potencialidadeSelecionada = dados.campos[0] || null;
+
+      if (bloquearAtivacaoAutomaticaTodasPotencialidades) {
+        // Mantém desligado após "Desativar todas".
+        // Se o usuário ativou manualmente uma potencialidade específica,
+        // preserva somente as que existem no território selecionado.
+        const selecionadasAtuais = getCamposPotencialidadesSelecionadas();
+        potencialidadesSelecionadas = new Set(
+          selecionadasAtuais.filter(campo => dados.campos.includes(campo))
+        );
+      } else {
+        potencialidadesSelecionadas = new Set(dados.campos);
+      }
+
+      potencialidadeSelecionada = getCamposPotencialidadesSelecionadas()[0] || null;
       aplicarPotencialidadesSelecionadas({ ajustarZoom: false, atualizarPainel: false, manterSelecaoAtual: true });
     }
 
@@ -6536,22 +6594,57 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       const atualizarPainel = opcoes?.atualizarPainel !== false;
       const manterEscopo = opcoes?.manterEscopo === true;
 
+      // Único comando que libera novamente a ativação automática de todas.
+      bloquearAtivacaoAutomaticaTodasPotencialidades = false;
+
       if (!manterEscopo) limparEscopoPotencialidades();
       potencialidadesSelecionadas = new Set(potencialidadesCampos);
       aplicarPotencialidadesSelecionadas({ ajustarZoom, atualizarPainel });
     }
 
     function desativarTodasPotencialidades() {
+      bloquearAtivacaoAutomaticaTodasPotencialidades = true;
       limparEscopoPotencialidades();
       potencialidadesSelecionadas.clear();
       potencialidadeSelecionada = null;
-      sincronizarBotoesPotencialidades();
-      potentialReset(potencialidadesLayer);
-      limparSimbolosPotencialidades();
+      aplicarPotencialidadesSelecionadas({ ajustarZoom: false, atualizarPainel: true });
     }
 
     function resetarPotencialidades() {
       limparEscopoPotencialidades();
+
+      if (bloquearAtivacaoAutomaticaTodasPotencialidades) {
+        // Após "Desativar todas", ESC, clique fora, troca de município/território
+        // e limpeza de filtros não religam automaticamente todas as potencialidades.
+        potencialidadeSelecionada = getCamposPotencialidadesSelecionadas()[0] || null;
+        aplicarPotencialidadesSelecionadas({
+          ajustarZoom: false,
+          atualizarPainel: false,
+          manterSelecaoAtual: true
+        });
+
+        renderInfoPanel(
+          'Estado do Piauí',
+          '<span>🏛 Visão geral estadual</span>',
+          `
+            <div class="section">
+              <h3>Resumo</h3>
+              <p class="muted">
+                As potencialidades estão desativadas. Elas só serão ativadas novamente
+                ao clicar em <strong>Ativar todas</strong> ou ao selecionar manualmente
+                uma potencialidade específica no painel esquerdo.
+              </p>
+            </div>
+
+            <div class="download-box">
+              <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
+              <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
+            </div>
+          `
+        );
+        return;
+      }
+
       potencialidadeSelecionada = null;
       potencialidadesSelecionadas = new Set(potencialidadesCampos);
       sincronizarBotoesPotencialidades();
@@ -10612,7 +10705,7 @@ function hoverMinerLeave(e) {
       fecharTooltipMunicipio(item.layer);
 
       if (municipioSelecionado) municipiosLayer.resetStyle(municipioSelecionado);
-      if (territorioSelecionado) resetarSelecaoTerritorio();
+      // Mantém o território selecionado também quando o município é escolhido pela busca.
       if (searchHighlightLayer) searchHighlightLayer.clearLayers();
 
       municipioSelecionado = item.layer;
@@ -11439,7 +11532,9 @@ function hoverMinerLeave(e) {
       if (sidebarListaMunicipiosEl) sidebarListaMunicipiosEl.style.display = 'none';
       if (searchHighlightLayer) searchHighlightLayer.clearLayers();
       potencialidadeSelecionada = null;
-      potencialidadesSelecionadas = new Set(potencialidadesCampos);
+      if (!bloquearAtivacaoAutomaticaTodasPotencialidades) {
+        potencialidadesSelecionadas = new Set(potencialidadesCampos);
+      }
       currentSelectedFeature = null;
       currentSelectedType = null;
 
@@ -11517,9 +11612,9 @@ function hoverMinerLeave(e) {
 
       limparHoverMunicipioAtual();
 
-      if (territorioSelecionado) {
-        resetarSelecaoTerritorio();
-      }
+      // Clique fora das feições não desfaz a seleção de território.
+      // O território só é limpo pelo ESC, pelo botão de limpar/todos os territórios,
+      // ou quando outro território é selecionado no painel.
 
       if (municipioSelecionado) {
         fecharTooltipMunicipio(municipioSelecionado);
