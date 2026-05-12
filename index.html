@@ -5,6 +5,8 @@
 
 
 
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2717,8 +2719,13 @@
       zoomSnap: 0.1,
       zoomDelta: 0.5,
       wheelPxPerZoomLevel: 90,
-      maxBoundsViscosity: 0.85
+      maxBoundsViscosity: 0.85,
+      // Evita zoom acidental ao clicar duas vezes/toques rápidos em feições.
+      doubleClickZoom: false
     }).setView([-7, -42], 7.48);
+
+    // Garante que nenhum duplo clique em município, território ou símbolo dê zoom.
+    map.doubleClickZoom.disable();
 
     let piauiMinimumBounds = null;
     let piauiMinimumResizeTimer = null;
@@ -2773,7 +2780,7 @@ let currentSelectedFeature = null;
       zoom, ESC, limpar filtros ou troca de visualização.
       Elas só voltam todas quando o usuário clicar no botão "Ativar todas".
     */
-    let bloquearAtivacaoAutomaticaTodasPotencialidades = false;
+    let bloquearAtivacaoAutomaticaTodasPotencialidades = true;
     let highlightedIndex = -1;
 
     const symbolLayerGroup = L.layerGroup().addTo(map);
@@ -6278,7 +6285,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       marker.bindPopup(montarPopupPotencialidade(props, campo), {
         maxWidth: 340,
-        autoPan: true,
+        // Não desloca nem aproxima o mapa ao abrir o popup do ícone.
+        autoPan: false,
         closeButton: true
       });
 
@@ -6345,7 +6353,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       marker.bindPopup(montarPopupPotencialidade(props, campo), {
         maxWidth: 340,
-        autoPan: true,
+        // Não desloca nem aproxima o mapa ao abrir o popup do ícone.
+        autoPan: false,
         closeButton: true
       });
 
@@ -6404,7 +6413,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
       marker.bindPopup(montarPopupGrupoPotencialidades(props, ativos), {
         maxWidth: 360,
-        autoPan: true,
+        // Não desloca nem aproxima o mapa ao abrir o popup do grupo.
+        autoPan: false,
         closeButton: true
       });
 
@@ -6715,7 +6725,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
           }
 
           potencialidadeSelecionada = getCamposPotencialidadesSelecionadas()[0] || null;
-          aplicarPotencialidadesSelecionadas({ ajustarZoom: true });
+          // Não aproxima o mapa ao clicar em uma potencialidade no painel.
+          aplicarPotencialidadesSelecionadas({ ajustarZoom: false });
         });
 
         listaPotencialidades.appendChild(btn);
@@ -6997,7 +7008,8 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
     function destacarPotencialidade(campo) {
       potencialidadesSelecionadas = new Set([campo]);
-      aplicarPotencialidadesSelecionadas({ ajustarZoom: true });
+      // Mantém a escala atual do mapa ao destacar potencialidade.
+      aplicarPotencialidadesSelecionadas({ ajustarZoom: false });
     }
 
     function ativarTodasPotencialidades(opcoes = {}) {
@@ -7200,9 +7212,36 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
     {
       potencialidadesCampos = coletarTodosCamposPotencialidades();
       if (potencialidadesCampos.length) {
-        potencialidadesSelecionadas = new Set(potencialidadesCampos);
+        // Inicia o mapa limpo: nenhuma potencialidade ativa e nenhum ícone desenhado.
+        // O usuário só verá os símbolos ao clicar em "Ativar todas" ou selecionar uma potencialidade.
+        bloquearAtivacaoAutomaticaTodasPotencialidades = true;
+        potencialidadesSelecionadas = new Set();
+        potencialidadeSelecionada = null;
+
         montarPainelPotencialidades(potencialidadesCampos);
-        desenharSimbolosDeTodosMunicipios();
+        sincronizarBotoesPotencialidades();
+        limparSimbolosPotencialidades();
+
+        renderInfoPanel(
+          'Estado do Piauí',
+          '<span>🏛 Visão geral estadual</span>',
+          `
+            <div class="section">
+              <h3>Resumo</h3>
+              <p class="muted">
+                O mapa foi iniciado limpo. As potencialidades estão desativadas.
+                Para visualizar os símbolos, clique em <strong>Ativar todas</strong>
+                ou selecione uma potencialidade específica no painel esquerdo.
+              </p>
+            </div>
+
+            <div class="download-box">
+              <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
+              <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
+            </div>
+          `,
+          'geral'
+        );
       } else {
         listaPotencialidades.innerHTML = '<div class="muted">Não foi possível ler as potencialidades.</div>';
       }
@@ -11132,7 +11171,7 @@ function hoverMinerLeave(e) {
     }
 
     function aplicarSelecaoMunicipio(item) {
-      map.fitBounds(item.layer.getBounds(), { padding: [20, 20] });
+      // Mantém o zoom atual também quando o município é selecionado pela busca.
       fecharTooltipMunicipioAtual();
       fecharTooltipMunicipio(item.layer);
 
@@ -12212,5 +12251,43 @@ function hoverMinerLeave(e) {
   })();
 </script>
 
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 </body>
 </html>
