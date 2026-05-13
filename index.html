@@ -2848,8 +2848,7 @@ let currentSelectedFeature = null;
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => String(item.fonte || '').trim()).filter(Boolean))];
       const unidades = [...new Set(itens.map(item => String(item.unidade || '').trim()).filter(Boolean))];
-      const anos = [...new Set(itens.map(item => String(item.ano || '').trim()).filter(Boolean))].sort();
-      return { fontes, unidades, anos };
+      return { fontes, unidades };
     }
 
     function renderizarSubclassesMunicipio(props = {}, camposFiltrar = null) {
@@ -2878,7 +2877,6 @@ let currentSelectedFeature = null;
           <div class="subclasses-summary">
             <span class="pill">${grupos.length} potencialidade(s)</span>
             <span class="pill">${totalSubclasses} subclasse(s)</span>
-            ${meta.anos.length ? `<span class="pill">Ano: ${meta.anos.map(anoSeguroSubclasseAtlas).join(', ')}</span>` : ''}
             ${meta.fontes.length ? `<span class="pill">Fonte: ${meta.fontes.map(f => escapeHtmlPotencialidade(f)).join(', ')}</span>` : ''}
           </div>
           ${grupos.map(grupo => `
@@ -2895,7 +2893,6 @@ let currentSelectedFeature = null;
                       <th class="subclasse-num">Quantidade</th>
                       <th>Unidade</th>
                       <th>Fonte</th>
-                      <th>Ano</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2905,7 +2902,6 @@ let currentSelectedFeature = null;
                         <td class="subclasse-num">${formatarValorSubclasseAtlas(item.valor)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.unidade)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.fonte)}</td>
-                        <td class="subclasse-small">${anoSeguroSubclasseAtlas(item.ano)}</td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -2936,7 +2932,6 @@ let currentSelectedFeature = null;
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;">${textoSeguroSubclasseAtlas(item.subclasse)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;text-align:right;font-weight:700;white-space:nowrap;">${formatarValorSubclasseAtlas(item.valor)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${textoSeguroSubclasseAtlas(item.unidade)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${anoSeguroSubclasseAtlas(item.ano)}</td>
         </tr>
       `).join('');
       const restante = itens.length > 12 ? `<p class="muted" style="margin-top:6px;font-size:12px;">+ ${itens.length - 12} subclasse(s). Veja a lista completa no painel lateral.</p>` : '';
@@ -2951,7 +2946,6 @@ let currentSelectedFeature = null;
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Subclasse</th>
                 <th style="text-align:right;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Qtd.</th>
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Unid.</th>
-                <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Ano</th>
               </tr>
             </thead>
             <tbody>${linhas}</tbody>
@@ -4145,79 +4139,79 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       }
 
       function drawScaleBar(x, y, label) {
-        const segW = 24;
-        const segH = 5;
+        const segW = 34;
+        const segH = 7;
         const total = segW * 4;
         ctx.save();
-        fillRoundRect(x - 8, y - 13, total + 16, 34, 7, 'rgba(255,255,255,0.88)', 'rgba(100,116,139,0.34)', 0.7);
+        fillRoundRect(x - 10, y - 18, total + 20, 46, 8, 'rgba(255,255,255,0.86)', 'rgba(100,116,139,0.45)', 0.8);
         for (let i = 0; i < 4; i++) {
           ctx.fillStyle = i % 2 === 0 ? '#111827' : '#ffffff';
           ctx.fillRect(x + i * segW, y, segW, segH);
           ctx.strokeStyle = '#111827';
-          ctx.lineWidth = 0.8;
+          ctx.lineWidth = 1;
           ctx.strokeRect(x + i * segW, y, segW, segH);
         }
         ctx.beginPath();
-        ctx.moveTo(x, y + segH + 3);
-        ctx.lineTo(x, y + segH + 8);
-        ctx.moveTo(x + total / 2, y + segH + 3);
-        ctx.lineTo(x + total / 2, y + segH + 8);
-        ctx.moveTo(x + total, y + segH + 3);
-        ctx.lineTo(x + total, y + segH + 8);
+        ctx.moveTo(x, y + segH + 4);
+        ctx.lineTo(x, y + segH + 10);
+        ctx.moveTo(x + total / 2, y + segH + 4);
+        ctx.lineTo(x + total / 2, y + segH + 10);
+        ctx.moveTo(x + total, y + segH + 4);
+        ctx.lineTo(x + total, y + segH + 10);
         ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = 1;
         ctx.stroke();
-        text('0', x, y + 23, { font: '10px Arial', color: '#374151', align: 'center' });
-        text(label, x + total, y + 23, { font: '10px Arial', color: '#374151', align: 'center' });
+        text('0', x, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
+        text(label, x + total, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
         ctx.restore();
       }
 
       function drawLegendSelecao(x, y) {
-        fillRoundRect(x, y, 245, 44, 10, 'rgba(255,255,255,0.94)', '#b8c7d8', 1.0);
+        fillRoundRect(x, y, 330, 58, 12, 'rgba(255,255,255,0.96)', '#b8c7d8', 1.2);
         ctx.fillStyle = 'rgba(249,115,22,0.70)';
         ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 2.2;
-        ctx.fillRect(x + 14, y + 13, 24, 16);
-        ctx.strokeRect(x + 14, y + 13, 24, 16);
-        text(`${nomeSelecao} selecionado`, x + 50, y + 26, { font: '12px Arial', color: '#1f2937' });
+        ctx.lineWidth = 3;
+        ctx.fillRect(x + 18, y + 18, 30, 20);
+        ctx.strokeRect(x + 18, y + 18, 30, 20);
+        text(`${nomeSelecao} selecionado`, x + 62, y + 34, { font: '15px Arial', color: '#1f2937' });
       }
 
       function drawLegendEstado(x, y) {
-        const boxW = 260;
-        const boxH = 84;
-        fillRoundRect(x, y, boxW, boxH, 10, 'rgba(255,255,255,0.94)', '#b8c7d8', 1.0);
-        text('Legenda', x + 12, y + 19, { font: 'bold 12px Arial', color: '#1f2937' });
+        const boxW = 350;
+        const boxH = 112;
+        fillRoundRect(x, y, boxW, boxH, 12, 'rgba(255,255,255,0.96)', '#b8c7d8', 1.2);
+        text('Legenda', x + 16, y + 24, { font: 'bold 15px Arial', color: '#1f2937' });
 
         // Estado do Piauí: contorno estadual destacado sobre a base OSM/Leaflet.
         ctx.save();
         ctx.strokeStyle = '#065f46';
-        ctx.lineWidth = 2.2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(x + 14, y + 34);
-        ctx.lineTo(x + 39, y + 34);
+        ctx.moveTo(x + 18, y + 44);
+        ctx.lineTo(x + 48, y + 44);
         ctx.stroke();
-        text('Estado do Piauí', x + 50, y + 38, { font: '11px Arial', color: '#1f2937' });
+        text('Estado do Piauí', x + 62, y + 49, { font: '14px Arial', color: '#1f2937' });
         ctx.restore();
 
         // Limites municipais: linhas internas discretas.
         ctx.save();
         ctx.strokeStyle = 'rgba(79,70,58,0.55)';
-        ctx.lineWidth = 1.0;
+        ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.moveTo(x + 14, y + 54);
-        ctx.lineTo(x + 39, y + 54);
+        ctx.moveTo(x + 18, y + 70);
+        ctx.lineTo(x + 48, y + 70);
         ctx.stroke();
-        text('Limites municipais', x + 50, y + 58, { font: '11px Arial', color: '#1f2937' });
+        text('Limites municipais', x + 62, y + 75, { font: '14px Arial', color: '#1f2937' });
         ctx.restore();
 
         // Município/território selecionado.
         ctx.save();
         ctx.fillStyle = 'rgba(249,115,22,0.70)';
         ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 1.8;
-        ctx.fillRect(x + 14, y + 67, 24, 12);
-        ctx.strokeRect(x + 14, y + 67, 24, 12);
-        text(`${nomeSelecao} selecionado`, x + 50, y + 78, { font: '11px Arial', color: '#1f2937' });
+        ctx.lineWidth = 2.4;
+        ctx.fillRect(x + 18, y + 88, 30, 16);
+        ctx.strokeRect(x + 18, y + 88, 30, 16);
+        text(`${nomeSelecao} selecionado`, x + 62, y + 101, { font: '14px Arial', color: '#1f2937' });
         ctx.restore();
       }
 
@@ -4327,14 +4321,14 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         drawLeafletControls(frame);
       });
 
-      // Norte e escala separados e proporcionais ao quadro do mapa.
-      drawNorthArrow(leftMap.x + 22, leftMap.y + leftMap.h - 88);
-      drawScaleBar(leftMap.x + 74, leftMap.y + leftMap.h - 42, '100 km');
-      drawNorthArrow(rightMap.x + 22, rightMap.y + rightMap.h - 88);
-      drawScaleBar(rightMap.x + 74, rightMap.y + rightMap.h - 42, '10 km');
+      // Norte e escala separados para evitar sobreposição.
+      drawNorthArrow(leftMap.x + 22, leftMap.y + leftMap.h - 96);
+      drawScaleBar(leftMap.x + 76, leftMap.y + leftMap.h - 54, '100 km');
+      drawNorthArrow(rightMap.x + 22, rightMap.y + rightMap.h - 96);
+      drawScaleBar(rightMap.x + 76, rightMap.y + rightMap.h - 54, '10 km');
 
-      drawLegendEstado(leftMap.x + leftMap.w - 278, leftMap.y + leftMap.h - 96);
-      drawLegendSelecao(rightPanel.x + 26, rightPanel.y + rightPanel.h - 50);
+      drawLegendEstado(leftMap.x + leftMap.w - 370, leftMap.y + leftMap.h - 132);
+      drawLegendSelecao(rightPanel.x + 26, rightPanel.y + rightPanel.h - 58);
       text(String(label || ''), outer.x + 36, outer.y + outer.h - 58, { font: 'bold 17px Arial', color: '#334155' });
       text(usarOSM ? 'Fonte: OpenStreetMap/Leaflet e camada municipal do Piauí carregada no Atlas.' : 'Fonte: camada municipal do Piauí carregada no Atlas.', outer.x + 36, outer.y + outer.h - 26, { font: '14px Arial', color: '#64748b' });
 
@@ -4972,7 +4966,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
               textoPdfAtlas(item.subclasse, ''),
               textoPdfAtlas(item.unidade, ''),
               textoPdfAtlas(item.fonte, ''),
-              textoPdfAtlas(item.ano, ''),
               textoPdfAtlas(item.classificacao, '')
             ].join('\u0001');
             if (!mapaItens.has(chave)) {
@@ -4981,7 +4974,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
                 valor: 0,
                 unidade: textoPdfAtlas(item.unidade),
                 fonte: textoPdfAtlas(item.fonte),
-                ano: textoPdfAtlas(item.ano),
                 classificacao: textoPdfAtlas(item.classificacao, ''),
                 municipios: new Set()
               });
@@ -5009,8 +5001,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => textoPdfAtlas(item.fonte, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
       const unidades = [...new Set(itens.map(item => textoPdfAtlas(item.unidade, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      const anos = [...new Set(itens.map(item => textoPdfAtlas(item.ano, '')).filter(Boolean))].sort();
-      return { fontes, unidades, anos };
+      return { fontes, unidades };
     }
 
     function adicionarTabelaSubclassesPdf(layout, grupos = [], options = {}) {
@@ -5028,25 +5019,22 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       layout.addTable([
         ['Potencialidades com subclasses', formatNumeroPTBR(grupos.length, 0)],
         ['Registros de subclasses', formatNumeroPTBR(total, 0)],
-        ['Ano(s)', meta.anos.length ? meta.anos.join(', ') : '-'],
         ['Fonte(s)', meta.fontes.length ? meta.fontes.join(', ') : '-'],
         ['Unidade(s) de medida', meta.unidades.length ? meta.unidades.join(', ') : '-']
       ], 54);
 
       const colsMunicipio = [
-        { key: 'subclasse', label: 'Subclasse', w: 66, align: 'left' },
-        { key: 'valor', label: 'Quantidade/valor', w: 30, align: 'right' },
-        { key: 'unidade', label: 'Unidade', w: 30, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: 26, align: 'left' },
-        { key: 'ano', label: 'Ano', w: contentW - 66 - 30 - 30 - 26, align: 'left' }
+        { key: 'subclasse', label: 'Subclasse', w: 72, align: 'left' },
+        { key: 'valor', label: 'Quantidade/valor', w: 31, align: 'right' },
+        { key: 'unidade', label: 'Unidade', w: 31, align: 'left' },
+        { key: 'fonte', label: 'Fonte', w: contentW - 72 - 31 - 31, align: 'left' }
       ];
       const colsTerritorio = [
-        { key: 'subclasse', label: 'Subclasse', w: 46, align: 'left' },
+        { key: 'subclasse', label: 'Subclasse', w: 48, align: 'left' },
         { key: 'valor', label: 'Quantidade agregada', w: 31, align: 'right' },
         { key: 'unidade', label: 'Unidade', w: 24, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: 18, align: 'left' },
-        { key: 'ano', label: 'Ano', w: 14, align: 'left' },
-        { key: 'municipios', label: 'Municípios', w: contentW - 46 - 31 - 24 - 18 - 14, align: 'left' }
+        { key: 'fonte', label: 'Fonte', w: 22, align: 'left' },
+        { key: 'municipios', label: 'Municípios', w: contentW - 48 - 31 - 24 - 22, align: 'left' }
       ];
       const cols = territorial ? colsTerritorio : colsMunicipio;
 
@@ -5090,7 +5078,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           valor: formatarValorSubclassePdf(item),
           unidade: textoPdfAtlas(item.unidade),
           fonte: textoPdfAtlas(item.fonte),
-          ano: textoPdfAtlas(item.ano),
           municipios
         };
       }
@@ -5372,13 +5359,13 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       adicionarTabelaSubclassesPdf(layout, gruposSubclassesParecer, {
         territorial: false,
         descricao: campoSubclasseParecer
-          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseParecer}, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.`
-          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.',
+          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseParecer}, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.`
+          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para o município na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este parecer foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
+      addParagraph('Este parecer foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
 
       drawFooter();
       doc.save(`parecer_municipio_${safeFileName(props.NM_MUN || 'municipio')}.pdf`);
@@ -5606,12 +5593,12 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       addTitle('6. Subclasses categorizadas do território');
       adicionarTabelaSubclassesPdf(layout, gruposSubclassesTerritorio, {
         territorial: true,
-        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte, ano e municípios com ocorrência na planilha categorizada T1.',
+        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte e municípios com ocorrência na planilha categorizada T1.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para os municípios do território na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este parecer territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
+      addParagraph('Este parecer territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
 
       drawFooter();
       doc.save(`parecer_territorio_${safeFileName(props.NM_TD || 'territorio')}.pdf`);
@@ -12503,7 +12490,7 @@ function hoverMinerLeave(e) {
     }
 
     function aplicarSelecaoMunicipio(item) {
-      // Mantém o zoom atual também quando o município é selecionado pela busca.
+      // Ao pesquisar um município, centraliza automaticamente a feição no mapa principal.
       fecharTooltipMunicipioAtual();
       fecharTooltipMunicipio(item.layer);
 
@@ -12518,6 +12505,25 @@ function hoverMinerLeave(e) {
       currentSelectedType = 'municipio';
       updateInfoPanelFromMunicipio(item.layer.feature.properties);
       aplicarPotencialidadesDoMunicipio(item.layer.feature.properties);
+
+      try {
+        const bounds = layerBoundsSafe(item.layer);
+        if (bounds) {
+          if (bounds.getNorthEast && bounds.getSouthWest && bounds.getNorthEast().equals(bounds.getSouthWest())) {
+            map.setView(bounds.getCenter(), Math.max(map.getZoom(), 11), { animate: true });
+          } else {
+            map.fitBounds(bounds, {
+              padding: [36, 36],
+              maxZoom: 11,
+              animate: true,
+              duration: 0.6
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Não foi possível centralizar o município pesquisado no mapa principal:', err);
+      }
+
       recolherLegenda();
     }
 
