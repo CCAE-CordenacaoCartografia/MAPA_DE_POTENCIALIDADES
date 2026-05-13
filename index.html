@@ -9,6 +9,8 @@
 
 
 
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -4143,41 +4145,80 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       }
 
       function drawScaleBar(x, y, label) {
-        const segW = 34;
-        const segH = 7;
+        const segW = 24;
+        const segH = 5;
         const total = segW * 4;
         ctx.save();
-        fillRoundRect(x - 10, y - 18, total + 20, 46, 8, 'rgba(255,255,255,0.86)', 'rgba(100,116,139,0.45)', 0.8);
+        fillRoundRect(x - 8, y - 13, total + 16, 34, 7, 'rgba(255,255,255,0.88)', 'rgba(100,116,139,0.34)', 0.7);
         for (let i = 0; i < 4; i++) {
           ctx.fillStyle = i % 2 === 0 ? '#111827' : '#ffffff';
           ctx.fillRect(x + i * segW, y, segW, segH);
           ctx.strokeStyle = '#111827';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 0.8;
           ctx.strokeRect(x + i * segW, y, segW, segH);
         }
         ctx.beginPath();
-        ctx.moveTo(x, y + segH + 4);
-        ctx.lineTo(x, y + segH + 10);
-        ctx.moveTo(x + total / 2, y + segH + 4);
-        ctx.lineTo(x + total / 2, y + segH + 10);
-        ctx.moveTo(x + total, y + segH + 4);
-        ctx.lineTo(x + total, y + segH + 10);
+        ctx.moveTo(x, y + segH + 3);
+        ctx.lineTo(x, y + segH + 8);
+        ctx.moveTo(x + total / 2, y + segH + 3);
+        ctx.lineTo(x + total / 2, y + segH + 8);
+        ctx.moveTo(x + total, y + segH + 3);
+        ctx.lineTo(x + total, y + segH + 8);
         ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 0.8;
         ctx.stroke();
-        text('0', x, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
-        text(label, x + total, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
+        text('0', x, y + 23, { font: '10px Arial', color: '#374151', align: 'center' });
+        text(label, x + total, y + 23, { font: '10px Arial', color: '#374151', align: 'center' });
         ctx.restore();
       }
 
-      function drawLegend(x, y) {
-        fillRoundRect(x, y, 330, 58, 12, 'rgba(255,255,255,0.96)', '#b8c7d8', 1.2);
+      function drawLegendSelecao(x, y) {
+        fillRoundRect(x, y, 245, 44, 10, 'rgba(255,255,255,0.94)', '#b8c7d8', 1.0);
         ctx.fillStyle = 'rgba(249,115,22,0.70)';
         ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 3;
-        ctx.fillRect(x + 18, y + 18, 30, 20);
-        ctx.strokeRect(x + 18, y + 18, 30, 20);
-        text(`${nomeSelecao} selecionado`, x + 62, y + 34, { font: '15px Arial', color: '#1f2937' });
+        ctx.lineWidth = 2.2;
+        ctx.fillRect(x + 14, y + 13, 24, 16);
+        ctx.strokeRect(x + 14, y + 13, 24, 16);
+        text(`${nomeSelecao} selecionado`, x + 50, y + 26, { font: '12px Arial', color: '#1f2937' });
+      }
+
+      function drawLegendEstado(x, y) {
+        const boxW = 260;
+        const boxH = 84;
+        fillRoundRect(x, y, boxW, boxH, 10, 'rgba(255,255,255,0.94)', '#b8c7d8', 1.0);
+        text('Legenda', x + 12, y + 19, { font: 'bold 12px Arial', color: '#1f2937' });
+
+        // Estado do Piauí: contorno estadual destacado sobre a base OSM/Leaflet.
+        ctx.save();
+        ctx.strokeStyle = '#065f46';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(x + 14, y + 34);
+        ctx.lineTo(x + 39, y + 34);
+        ctx.stroke();
+        text('Estado do Piauí', x + 50, y + 38, { font: '11px Arial', color: '#1f2937' });
+        ctx.restore();
+
+        // Limites municipais: linhas internas discretas.
+        ctx.save();
+        ctx.strokeStyle = 'rgba(79,70,58,0.55)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(x + 14, y + 54);
+        ctx.lineTo(x + 39, y + 54);
+        ctx.stroke();
+        text('Limites municipais', x + 50, y + 58, { font: '11px Arial', color: '#1f2937' });
+        ctx.restore();
+
+        // Município/território selecionado.
+        ctx.save();
+        ctx.fillStyle = 'rgba(249,115,22,0.70)';
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 1.8;
+        ctx.fillRect(x + 14, y + 67, 24, 12);
+        ctx.strokeRect(x + 14, y + 67, 24, 12);
+        text(`${nomeSelecao} selecionado`, x + 50, y + 78, { font: '11px Arial', color: '#1f2937' });
+        ctx.restore();
       }
 
       function drawPiauiContour(project, strokeMain = '#064e3b') {
@@ -4286,13 +4327,14 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         drawLeafletControls(frame);
       });
 
-      // Norte e escala separados para evitar sobreposição.
-      drawNorthArrow(leftMap.x + 22, leftMap.y + leftMap.h - 96);
-      drawScaleBar(leftMap.x + 76, leftMap.y + leftMap.h - 54, '100 km');
-      drawNorthArrow(rightMap.x + 22, rightMap.y + rightMap.h - 96);
-      drawScaleBar(rightMap.x + 76, rightMap.y + rightMap.h - 54, '10 km');
+      // Norte e escala separados e proporcionais ao quadro do mapa.
+      drawNorthArrow(leftMap.x + 22, leftMap.y + leftMap.h - 88);
+      drawScaleBar(leftMap.x + 74, leftMap.y + leftMap.h - 42, '100 km');
+      drawNorthArrow(rightMap.x + 22, rightMap.y + rightMap.h - 88);
+      drawScaleBar(rightMap.x + 74, rightMap.y + rightMap.h - 42, '10 km');
 
-      drawLegend(rightPanel.x + 26, rightPanel.y + rightPanel.h - 58);
+      drawLegendEstado(leftMap.x + leftMap.w - 278, leftMap.y + leftMap.h - 96);
+      drawLegendSelecao(rightPanel.x + 26, rightPanel.y + rightPanel.h - 50);
       text(String(label || ''), outer.x + 36, outer.y + outer.h - 58, { font: 'bold 17px Arial', color: '#334155' });
       text(usarOSM ? 'Fonte: OpenStreetMap/Leaflet e camada municipal do Piauí carregada no Atlas.' : 'Fonte: camada municipal do Piauí carregada no Atlas.', outer.x + 36, outer.y + outer.h - 26, { font: '14px Arial', color: '#64748b' });
 
