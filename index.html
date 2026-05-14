@@ -15,6 +15,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2852,8 +2853,7 @@ let currentSelectedFeature = null;
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => String(item.fonte || '').trim()).filter(Boolean))];
       const unidades = [...new Set(itens.map(item => String(item.unidade || '').trim()).filter(Boolean))];
-      const anos = [...new Set(itens.map(item => String(item.ano || '').trim()).filter(Boolean))].sort();
-      return { fontes, unidades, anos };
+      return { fontes, unidades };
     }
 
     function renderizarSubclassesMunicipio(props = {}, camposFiltrar = null) {
@@ -2882,7 +2882,6 @@ let currentSelectedFeature = null;
           <div class="subclasses-summary">
             <span class="pill">${grupos.length} potencialidade(s)</span>
             <span class="pill">${totalSubclasses} subclasse(s)</span>
-            ${meta.anos.length ? `<span class="pill">Ano: ${meta.anos.map(anoSeguroSubclasseAtlas).join(', ')}</span>` : ''}
             ${meta.fontes.length ? `<span class="pill">Fonte: ${meta.fontes.map(f => escapeHtmlPotencialidade(f)).join(', ')}</span>` : ''}
           </div>
           ${grupos.map(grupo => `
@@ -2899,7 +2898,6 @@ let currentSelectedFeature = null;
                       <th class="subclasse-num">Quantidade</th>
                       <th>Unidade</th>
                       <th>Fonte</th>
-                      <th>Ano</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2909,7 +2907,6 @@ let currentSelectedFeature = null;
                         <td class="subclasse-num">${formatarValorSubclasseAtlas(item.valor)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.unidade)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.fonte)}</td>
-                        <td class="subclasse-small">${anoSeguroSubclasseAtlas(item.ano)}</td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -2940,7 +2937,6 @@ let currentSelectedFeature = null;
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;">${textoSeguroSubclasseAtlas(item.subclasse)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;text-align:right;font-weight:700;white-space:nowrap;">${formatarValorSubclasseAtlas(item.valor)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${textoSeguroSubclasseAtlas(item.unidade)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${anoSeguroSubclasseAtlas(item.ano)}</td>
         </tr>
       `).join('');
       const restante = itens.length > 12 ? `<p class="muted" style="margin-top:6px;font-size:12px;">+ ${itens.length - 12} subclasse(s). Veja a lista completa no painel lateral.</p>` : '';
@@ -2955,7 +2951,6 @@ let currentSelectedFeature = null;
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Subclasse</th>
                 <th style="text-align:right;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Qtd.</th>
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Unid.</th>
-                <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Ano</th>
               </tr>
             </thead>
             <tbody>${linhas}</tbody>
@@ -5059,7 +5054,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
               textoPdfAtlas(item.subclasse, ''),
               textoPdfAtlas(item.unidade, ''),
               textoPdfAtlas(item.fonte, ''),
-              textoPdfAtlas(item.ano, ''),
               textoPdfAtlas(item.classificacao, '')
             ].join('\u0001');
             if (!mapaItens.has(chave)) {
@@ -5068,7 +5062,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
                 valor: 0,
                 unidade: textoPdfAtlas(item.unidade),
                 fonte: textoPdfAtlas(item.fonte),
-                ano: textoPdfAtlas(item.ano),
                 classificacao: textoPdfAtlas(item.classificacao, ''),
                 municipios: new Set()
               });
@@ -5096,8 +5089,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => textoPdfAtlas(item.fonte, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
       const unidades = [...new Set(itens.map(item => textoPdfAtlas(item.unidade, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      const anos = [...new Set(itens.map(item => textoPdfAtlas(item.ano, '')).filter(Boolean))].sort();
-      return { fontes, unidades, anos };
+      return { fontes, unidades };
     }
 
     function adicionarTabelaSubclassesPdf(layout, grupos = [], options = {}) {
@@ -5115,25 +5107,22 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       layout.addTable([
         ['Potencialidades com subclasses', formatNumeroPTBR(grupos.length, 0)],
         ['Registros de subclasses', formatNumeroPTBR(total, 0)],
-        ['Ano(s)', meta.anos.length ? meta.anos.join(', ') : '-'],
         ['Fonte(s)', meta.fontes.length ? meta.fontes.join(', ') : '-'],
         ['Unidade(s) de medida', meta.unidades.length ? meta.unidades.join(', ') : '-']
       ], 54);
 
       const colsMunicipio = [
-        { key: 'subclasse', label: 'Subclasse', w: 66, align: 'left' },
-        { key: 'valor', label: 'Quantidade/valor', w: 30, align: 'right' },
-        { key: 'unidade', label: 'Unidade', w: 30, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: 26, align: 'left' },
-        { key: 'ano', label: 'Ano', w: contentW - 66 - 30 - 30 - 26, align: 'left' }
+        { key: 'subclasse', label: 'Subclasse', w: 74, align: 'left' },
+        { key: 'valor', label: 'Quantidade/valor', w: 32, align: 'right' },
+        { key: 'unidade', label: 'Unidade', w: 32, align: 'left' },
+        { key: 'fonte', label: 'Fonte', w: contentW - 74 - 32 - 32, align: 'left' }
       ];
       const colsTerritorio = [
-        { key: 'subclasse', label: 'Subclasse', w: 46, align: 'left' },
-        { key: 'valor', label: 'Quantidade agregada', w: 31, align: 'right' },
-        { key: 'unidade', label: 'Unidade', w: 24, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: 18, align: 'left' },
-        { key: 'ano', label: 'Ano', w: 14, align: 'left' },
-        { key: 'municipios', label: 'Municípios', w: contentW - 46 - 31 - 24 - 18 - 14, align: 'left' }
+        { key: 'subclasse', label: 'Subclasse', w: 48, align: 'left' },
+        { key: 'valor', label: 'Quantidade agregada', w: 32, align: 'right' },
+        { key: 'unidade', label: 'Unidade', w: 26, align: 'left' },
+        { key: 'fonte', label: 'Fonte', w: 24, align: 'left' },
+        { key: 'municipios', label: 'Municípios', w: contentW - 48 - 32 - 26 - 24, align: 'left' }
       ];
       const cols = territorial ? colsTerritorio : colsMunicipio;
 
@@ -5177,7 +5166,6 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           valor: formatarValorSubclassePdf(item),
           unidade: textoPdfAtlas(item.unidade),
           fonte: textoPdfAtlas(item.fonte),
-          ano: textoPdfAtlas(item.ano),
           municipios
         };
       }
@@ -5459,13 +5447,13 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       adicionarTabelaSubclassesPdf(layout, gruposSubclassesRelatório, {
         territorial: false,
         descricao: campoSubclasseRelatório
-          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseRelatório}, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.`
-          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.',
+          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseRelatório}, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.`
+          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para o município na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este relatório foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
+      addParagraph('Este relatório foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
 
       drawFooter();
       doc.save(`relatório_municipio_${safeFileName(props.NM_MUN || 'municipio')}.pdf`);
@@ -5693,12 +5681,12 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       addTitle('6. Subclasses categorizadas do território');
       adicionarTabelaSubclassesPdf(layout, gruposSubclassesTerritorio, {
         territorial: true,
-        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte, ano e municípios com ocorrência na planilha categorizada T1.',
+        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte e municípios com ocorrência na planilha categorizada T1.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para os municípios do território na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este relatório territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
+      addParagraph('Este relatório territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
 
       drawFooter();
       doc.save(`relatório_territorio_${safeFileName(props.NM_TD || 'territorio')}.pdf`);
@@ -9329,7 +9317,6 @@ function bindMinerPopup(feature, layer) {
   const FIELD_MAP = [
     { label: 'Processo',       keys: ['processo','proc','processo_dnpm','processo_anm'] },
     { label: 'Número',         keys: ['numero','número','n_processo','nup','num'] },
-    { label: 'Ano',            keys: ['ano','year'] },
     { label: 'Fase',           keys: ['fase','situacao','situação','status'] },
     { label: 'Titular',        keys: ['titular','empresa','razao_social','razão_social','nome'] },
     // Substância será calculada, mas também tentamos pegar o bruto se houver
