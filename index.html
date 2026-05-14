@@ -11,6 +11,10 @@
 
 
 
+
+
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -633,7 +637,7 @@
 
     #uploadInput { display: none; }
 
-    #parecerUploadBtn {
+    #relatórioUploadBtn {
       top: 134px;
       left: 12px;
       background: linear-gradient(90deg, #0b6b2a, #178a45);
@@ -649,11 +653,11 @@
       display: none;
     }
 
-    #parecerUploadBtn:hover {
+    #relatórioUploadBtn:hover {
       filter: brightness(0.95);
     }
 
-    #parecerUploadBtn:disabled {
+    #relatórioUploadBtn:disabled {
       opacity: .55;
       cursor: not-allowed;
     }
@@ -2054,7 +2058,7 @@
         top: 88px;
         left: 10px;
       }
-      #parecerUploadBtn {
+      #relatórioUploadBtn {
         top: 126px;
         left: 10px;
         font-size: 12px;
@@ -2333,7 +2337,7 @@
         border-radius: 10px !important;
       }
 
-      #parecerUploadBtn {
+      #relatórioUploadBtn {
         top: 46px !important;
         left: 10px !important;
         padding: 7px 10px !important;
@@ -2454,7 +2458,7 @@
       }
 
       #uploadBtn,
-      #parecerUploadBtn,
+      #relatórioUploadBtn,
       #mapaSobreposicoesUploadBtn {
         font-size: 11px !important;
       }
@@ -2703,7 +2707,7 @@
         <div class="download-box">
           <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
           <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
         </div>
       </div>
     </aside>
@@ -2848,7 +2852,8 @@ let currentSelectedFeature = null;
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => String(item.fonte || '').trim()).filter(Boolean))];
       const unidades = [...new Set(itens.map(item => String(item.unidade || '').trim()).filter(Boolean))];
-      return { fontes, unidades };
+      const anos = [...new Set(itens.map(item => String(item.ano || '').trim()).filter(Boolean))].sort();
+      return { fontes, unidades, anos };
     }
 
     function renderizarSubclassesMunicipio(props = {}, camposFiltrar = null) {
@@ -2877,6 +2882,7 @@ let currentSelectedFeature = null;
           <div class="subclasses-summary">
             <span class="pill">${grupos.length} potencialidade(s)</span>
             <span class="pill">${totalSubclasses} subclasse(s)</span>
+            ${meta.anos.length ? `<span class="pill">Ano: ${meta.anos.map(anoSeguroSubclasseAtlas).join(', ')}</span>` : ''}
             ${meta.fontes.length ? `<span class="pill">Fonte: ${meta.fontes.map(f => escapeHtmlPotencialidade(f)).join(', ')}</span>` : ''}
           </div>
           ${grupos.map(grupo => `
@@ -2893,6 +2899,7 @@ let currentSelectedFeature = null;
                       <th class="subclasse-num">Quantidade</th>
                       <th>Unidade</th>
                       <th>Fonte</th>
+                      <th>Ano</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2902,6 +2909,7 @@ let currentSelectedFeature = null;
                         <td class="subclasse-num">${formatarValorSubclasseAtlas(item.valor)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.unidade)}</td>
                         <td class="subclasse-small">${textoSeguroSubclasseAtlas(item.fonte)}</td>
+                        <td class="subclasse-small">${anoSeguroSubclasseAtlas(item.ano)}</td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -2932,6 +2940,7 @@ let currentSelectedFeature = null;
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;">${textoSeguroSubclasseAtlas(item.subclasse)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;text-align:right;font-weight:700;white-space:nowrap;">${formatarValorSubclasseAtlas(item.valor)}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${textoSeguroSubclasseAtlas(item.unidade)}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #edf2f7;white-space:nowrap;">${anoSeguroSubclasseAtlas(item.ano)}</td>
         </tr>
       `).join('');
       const restante = itens.length > 12 ? `<p class="muted" style="margin-top:6px;font-size:12px;">+ ${itens.length - 12} subclasse(s). Veja a lista completa no painel lateral.</p>` : '';
@@ -2946,6 +2955,7 @@ let currentSelectedFeature = null;
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Subclasse</th>
                 <th style="text-align:right;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Qtd.</th>
                 <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Unid.</th>
+                <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1;background:#f8fafc;">Ano</th>
               </tr>
             </thead>
             <tbody>${linhas}</tbody>
@@ -3192,8 +3202,18 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
 
 
 
+    function normalizarNomeExibicaoAtlas(texto) {
+      return String(texto ?? '')
+        .replace(/­/g, '')
+        .replace(/Parna[ií]\s*-\s*ba/gi, 'Parnaíba')
+        .replace(/Tabuleiro\s+Alto\s+Parna[ií]ba/gi, 'Tabuleiros do Alto Parnaíba')
+        .replace(/Tabuleiros\s+do\s+Alto\s+Parna[ií]\s*-\s*ba/gi, 'Tabuleiros do Alto Parnaíba')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     function textoNormalizadoPdf(texto, vazio = '-') {
-      const valor = String(texto ?? '').replace(/\s+/g, ' ').trim();
+      const valor = normalizarNomeExibicaoAtlas(texto);
       return valor || vazio;
     }
 
@@ -3206,7 +3226,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       const percentualLinha = larguraTexto / Math.max(largura, 1);
 
       // Não força justificação em última linha, linha curta ou linha com poucas palavras,
-      // evitando espaços exagerados que deixam o parecer artificial.
+      // evitando espaços exagerados que deixam o relatório artificial.
       if (!justificar || palavras.length <= 3 || percentualLinha < 0.72) {
         doc.text(texto, x, y);
         return;
@@ -3395,7 +3415,7 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       doc.setLineWidth(0.8);
       doc.lines([[1.4, 1.2], [3.0, -3.2]], cx + 5.2, iconY + 6.1, [1, 1], 'S');
 
-      const nomeCapa = String(subtitulo || '').trim() || 'Seleção territorial';
+      const nomeCapa = normalizarNomeExibicaoAtlas(subtitulo || '') || 'Seleção territorial';
       const categoria = String(tipoDocumento || '').toUpperCase().includes('TERRITORIAL')
         ? 'ANÁLISE TERRITORIAL'
         : String(tipoDocumento || '').toUpperCase().includes('MUNICIPAL')
@@ -3404,13 +3424,48 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
             ? 'ANÁLISE DA ÁREA ENVIADA'
             : 'ANÁLISE TERRITORIAL';
 
+      function quebrarTituloCapaSemCortarPalavra(texto, larguraMax, fonteInicial = 14.2, fonteMinima = 10.4) {
+        const conteudo = normalizarNomeExibicaoAtlas(texto);
+        let fonte = fonteInicial;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(fonte);
+
+        // Primeiro tenta manter o nome em uma única linha, reduzindo levemente a fonte.
+        while (fonte > fonteMinima && doc.getTextWidth(conteudo) > larguraMax) {
+          fonte -= 0.25;
+          doc.setFontSize(fonte);
+        }
+        if (doc.getTextWidth(conteudo) <= larguraMax) return { linhas: [conteudo], fonte };
+
+        // Se ainda não couber, quebra apenas entre palavras, sem criar hífen no meio do nome.
+        const palavras = conteudo.split(/\s+/).filter(Boolean);
+        const linhas = [];
+        let linhaAtual = '';
+        palavras.forEach(palavra => {
+          const tentativa = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
+          if (doc.getTextWidth(tentativa) <= larguraMax || !linhaAtual) {
+            linhaAtual = tentativa;
+          } else {
+            linhas.push(linhaAtual);
+            linhaAtual = palavra;
+          }
+        });
+        if (linhaAtual) linhas.push(linhaAtual);
+        return { linhas: linhas.slice(0, 2), fonte };
+      }
+
       doc.setTextColor(azulEscuro[0], azulEscuro[1], azulEscuro[2]);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14.2);
-      doc.text(doc.splitTextToSize(nomeCapa, cardW - 35), cx, cardY + 55, { align: 'center' });
+      const tituloCapa = quebrarTituloCapaSemCortarPalavra(nomeCapa, cardW - 20);
+      doc.setFontSize(tituloCapa.fonte);
+      const tituloYBase = cardY + (tituloCapa.linhas.length > 1 ? 51.5 : 55);
+      tituloCapa.linhas.forEach((linha, idx) => {
+        doc.text(linha, cx, tituloYBase + idx * 5.4, { align: 'center' });
+      });
+      const linhaSeparadoraY = cardY + (tituloCapa.linhas.length > 1 ? 64.5 : 63);
       doc.setDrawColor(azulMedio[0], azulMedio[1], azulMedio[2]);
       doc.setLineWidth(0.55);
-      doc.line(cx - 18, cardY + 63, cx + 18, cardY + 63);
+      doc.line(cx - 18, linhaSeparadoraY, cx + 18, linhaSeparadoraY);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.8);
@@ -4119,99 +4174,137 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       function drawNorthArrow(x, y) {
         ctx.save();
-        text('N', x + 15, y, { font: 'bold 15px Arial', color: '#111827', align: 'center' });
+        fillRoundRect(x, y, 52, 62, 9, 'rgba(255,255,255,0.90)', 'rgba(100,116,139,0.45)', 0.8);
+        text('N', x + 26, y + 16, { font: 'bold 14px Arial', color: '#111827', align: 'center' });
+
+        // Seta norte mais limpa, posicionada no canto superior direito do mapa.
+        ctx.beginPath();
+        ctx.moveTo(x + 26, y + 21);
+        ctx.lineTo(x + 38, y + 52);
+        ctx.lineTo(x + 26, y + 44);
+        ctx.lineTo(x + 14, y + 52);
+        ctx.closePath();
         ctx.fillStyle = '#111827';
-        ctx.beginPath();
-        ctx.moveTo(x + 15, y + 8);
-        ctx.lineTo(x + 25, y + 42);
-        ctx.lineTo(x + 15, y + 35);
-        ctx.lineTo(x + 5, y + 42);
-        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#dc2626';
+
         ctx.beginPath();
-        ctx.moveTo(x + 15, y + 8);
-        ctx.lineTo(x + 25, y + 42);
-        ctx.lineTo(x + 15, y + 35);
+        ctx.moveTo(x + 26, y + 21);
+        ctx.lineTo(x + 38, y + 52);
+        ctx.lineTo(x + 26, y + 44);
         ctx.closePath();
+        ctx.fillStyle = '#dc2626';
         ctx.fill();
         ctx.restore();
       }
 
-      function drawScaleBar(x, y, label) {
-        const segW = 34;
-        const segH = 7;
-        const total = segW * 4;
-        ctx.save();
-        fillRoundRect(x - 10, y - 18, total + 20, 46, 8, 'rgba(255,255,255,0.86)', 'rgba(100,116,139,0.45)', 0.8);
-        for (let i = 0; i < 4; i++) {
-          ctx.fillStyle = i % 2 === 0 ? '#111827' : '#ffffff';
-          ctx.fillRect(x + i * segW, y, segW, segH);
-          ctx.strokeStyle = '#111827';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x + i * segW, y, segW, segH);
+      function niceScaleMeters(rawMeters) {
+        if (!Number.isFinite(rawMeters) || rawMeters <= 0) return 1000;
+        const exp = Math.floor(Math.log10(rawMeters));
+        const base = Math.pow(10, exp);
+        const fraction = rawMeters / base;
+        let niceFraction = 1;
+        if (fraction >= 7.5) niceFraction = 10;
+        else if (fraction >= 3.5) niceFraction = 5;
+        else if (fraction >= 1.5) niceFraction = 2;
+        return niceFraction * base;
+      }
+
+      function formatScaleLabel(meters) {
+        if (meters >= 1000) {
+          const km = meters / 1000;
+          return `${km >= 10 ? Math.round(km) : km.toFixed(1).replace('.', ',')} km`;
         }
-        ctx.beginPath();
-        ctx.moveTo(x, y + segH + 4);
-        ctx.lineTo(x, y + segH + 10);
-        ctx.moveTo(x + total / 2, y + segH + 4);
-        ctx.lineTo(x + total / 2, y + segH + 10);
-        ctx.moveTo(x + total, y + segH + 4);
-        ctx.lineTo(x + total, y + segH + 10);
+        return `${Math.round(meters)} m`;
+      }
+
+      function drawScaleBar(frame, projeto) {
+        if (!frame || !projeto) return;
+        const centerLat = (projeto.bbox[1] + projeto.bbox[3]) / 2;
+        const metersPerOsmPixel = 156543.03392 * Math.cos(centerLat * Math.PI / 180) / Math.pow(2, projeto.zoom);
+        const metersPerCanvasPixel = metersPerOsmPixel / Math.max(projeto.scale || 1, 0.000001);
+        const targetPx = Math.max(76, Math.min(118, frame.w * 0.145));
+        const niceMeters = niceScaleMeters(targetPx * metersPerCanvasPixel);
+        const barPx = Math.max(64, Math.min(128, niceMeters / metersPerCanvasPixel));
+        const x = frame.x + 42;
+        const y = frame.y + frame.h - 42;
+        const boxW = barPx + 28;
+        const boxH = 31;
+
+        ctx.save();
+        // Fundo menor e mais discreto, apenas para dar leitura à escala sobre o OSM.
+        fillRoundRect(x - 12, y - 12, boxW, boxH, 6, 'rgba(255,255,255,0.74)', 'rgba(100,116,139,0.22)', 0.55);
+
+        // Barra fina, em estilo técnico, com duas metades e marcações discretas.
+        const half = barPx / 2;
+        ctx.lineWidth = 1.0;
         ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 1;
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(x, y, half, 3.4);
+        ctx.strokeRect(x, y, half, 3.4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + half, y, half, 3.4);
+        ctx.strokeRect(x + half, y, half, 3.4);
+
+        ctx.beginPath();
+        ctx.moveTo(x, y - 3); ctx.lineTo(x, y + 8);
+        ctx.moveTo(x + half, y - 1.5); ctx.lineTo(x + half, y + 6.8);
+        ctx.moveTo(x + barPx, y - 3); ctx.lineTo(x + barPx, y + 8);
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 0.9;
         ctx.stroke();
-        text('0', x, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
-        text(label, x + total, y + 30, { font: '12px Arial', color: '#374151', align: 'center' });
+
+        text('0', x, y + 19, { font: '10px Arial', color: '#374151', align: 'center' });
+        text(formatScaleLabel(niceMeters / 2), x + half, y + 19, { font: '10px Arial', color: '#374151', align: 'center' });
+        text(formatScaleLabel(niceMeters), x + barPx, y + 19, { font: '10px Arial', color: '#374151', align: 'center' });
         ctx.restore();
       }
 
       function drawLegendSelecao(x, y) {
-        fillRoundRect(x, y, 330, 58, 12, 'rgba(255,255,255,0.96)', '#b8c7d8', 1.2);
+        fillRoundRect(x, y, 205, 34, 8, 'rgba(255,255,255,0.82)', 'rgba(148,163,184,0.55)', 0.75);
         ctx.fillStyle = 'rgba(249,115,22,0.70)';
         ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 3;
-        ctx.fillRect(x + 18, y + 18, 30, 20);
-        ctx.strokeRect(x + 18, y + 18, 30, 20);
-        text(`${nomeSelecao} selecionado`, x + 62, y + 34, { font: '15px Arial', color: '#1f2937' });
+        ctx.lineWidth = 1.8;
+        ctx.fillRect(x + 11, y + 10, 20, 13);
+        ctx.strokeRect(x + 11, y + 10, 20, 13);
+        text(`${nomeSelecao} selecionado`, x + 41, y + 21, { font: '10.5px Arial', color: '#1f2937' });
       }
 
       function drawLegendEstado(x, y) {
-        const boxW = 350;
-        const boxH = 112;
-        fillRoundRect(x, y, boxW, boxH, 12, 'rgba(255,255,255,0.96)', '#b8c7d8', 1.2);
-        text('Legenda', x + 16, y + 24, { font: 'bold 15px Arial', color: '#1f2937' });
+        const boxW = 220;
+        const boxH = 68;
+        fillRoundRect(x, y, boxW, boxH, 8, 'rgba(255,255,255,0.82)', 'rgba(148,163,184,0.55)', 0.75);
+        text('Legenda', x + 10, y + 16, { font: 'bold 11px Arial', color: '#1f2937' });
 
         // Estado do Piauí: contorno estadual destacado sobre a base OSM/Leaflet.
         ctx.save();
         ctx.strokeStyle = '#065f46';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2.0;
         ctx.beginPath();
-        ctx.moveTo(x + 18, y + 44);
-        ctx.lineTo(x + 48, y + 44);
+        ctx.moveTo(x + 11, y + 29);
+        ctx.lineTo(x + 33, y + 29);
         ctx.stroke();
-        text('Estado do Piauí', x + 62, y + 49, { font: '14px Arial', color: '#1f2937' });
+        text('Estado do Piauí', x + 43, y + 33, { font: '10px Arial', color: '#1f2937' });
         ctx.restore();
 
         // Limites municipais: linhas internas discretas.
         ctx.save();
         ctx.strokeStyle = 'rgba(79,70,58,0.55)';
-        ctx.lineWidth = 1.4;
+        ctx.lineWidth = 0.9;
         ctx.beginPath();
-        ctx.moveTo(x + 18, y + 70);
-        ctx.lineTo(x + 48, y + 70);
+        ctx.moveTo(x + 11, y + 45);
+        ctx.lineTo(x + 33, y + 45);
         ctx.stroke();
-        text('Limites municipais', x + 62, y + 75, { font: '14px Arial', color: '#1f2937' });
+        text('Limites municipais', x + 43, y + 49, { font: '10px Arial', color: '#1f2937' });
         ctx.restore();
 
         // Município/território selecionado.
         ctx.save();
         ctx.fillStyle = 'rgba(249,115,22,0.70)';
         ctx.strokeStyle = '#dc2626';
-        ctx.lineWidth = 2.4;
-        ctx.fillRect(x + 18, y + 88, 30, 16);
-        ctx.strokeRect(x + 18, y + 88, 30, 16);
-        text(`${nomeSelecao} selecionado`, x + 62, y + 101, { font: '14px Arial', color: '#1f2937' });
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(x + 11, y + 55, 20, 10);
+        ctx.strokeRect(x + 11, y + 55, 20, 10);
+        text(`${nomeSelecao} selecionado`, x + 43, y + 64, { font: '10px Arial', color: '#1f2937' });
         ctx.restore();
       }
 
@@ -4321,14 +4414,14 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         drawLeafletControls(frame);
       });
 
-      // Norte e escala separados para evitar sobreposição.
-      drawNorthArrow(leftMap.x + 22, leftMap.y + leftMap.h - 96);
-      drawScaleBar(leftMap.x + 76, leftMap.y + leftMap.h - 54, '100 km');
-      drawNorthArrow(rightMap.x + 22, rightMap.y + rightMap.h - 96);
-      drawScaleBar(rightMap.x + 76, rightMap.y + rightMap.h - 54, '10 km');
+      // Norte no canto superior direito e escala gráfica proporcional à base OSM/Leaflet.
+      drawNorthArrow(leftMap.x + leftMap.w - 68, leftMap.y + 16);
+      drawScaleBar(leftMap, projEstadoObj);
+      drawNorthArrow(rightMap.x + rightMap.w - 68, rightMap.y + 16);
+      drawScaleBar(rightMap, projZoomObj);
 
-      drawLegendEstado(leftMap.x + leftMap.w - 370, leftMap.y + leftMap.h - 132);
-      drawLegendSelecao(rightPanel.x + 26, rightPanel.y + rightPanel.h - 58);
+      drawLegendEstado(leftMap.x + leftMap.w - 238, leftMap.y + leftMap.h - 78);
+      drawLegendSelecao(rightPanel.x + 26, rightPanel.y + rightPanel.h - 40);
       text(String(label || ''), outer.x + 36, outer.y + outer.h - 58, { font: 'bold 17px Arial', color: '#334155' });
       text(usarOSM ? 'Fonte: OpenStreetMap/Leaflet e camada municipal do Piauí carregada no Atlas.' : 'Fonte: camada municipal do Piauí carregada no Atlas.', outer.x + 36, outer.y + outer.h - 26, { font: '14px Arial', color: '#64748b' });
 
@@ -4378,7 +4471,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       return { type: 'FeatureCollection', features };
     }
 
-    function _listarCamadasMapaParecerSelecionadas(feature, tipoSelecao = 'municipio') {
+    function _listarCamadasMapaRelatórioSelecionadas(feature, tipoSelecao = 'municipio') {
       const baseBbox = _expandBboxPdf(_bboxFeaturePdf(feature), tipoSelecao === 'territorio' ? 0.20 : 0.35);
       const entradas = [];
       function pushLayer(nome, rootLayer, cor, options = {}) {
@@ -4631,7 +4724,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
     function _desenharMapaContextoCanvas(ctx, frame, feature, tipoSelecao) {
       const municipiosFC = _layerToFeatureCollectionPdf((typeof municipiosLayer !== 'undefined' ? municipiosLayer : null), null, 5000);
-      const bbox = extrairBboxFeicoesMapaParecer([{ camada: 'Municípios', featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5];
+      const bbox = extrairBboxFeicoesMapaRelatório([{ camada: 'Municípios', featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5];
       const pad = _expandBboxPdf(bbox, 0.03) || bbox;
       const dx = Math.max(pad[2] - pad[0], 0.01);
       const dy = Math.max(pad[3] - pad[1], 0.01);
@@ -4654,7 +4747,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       ctx.restore();
     }
 
-    async function criarMapaCartograficoParecerImagem(options = {}) {
+    async function criarMapaCartograficoRelatórioImagem(options = {}) {
       const feature = options.feature;
       if (!feature?.geometry) return null;
 
@@ -4792,7 +4885,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       function desenharMapaSituacao(frame, featureSituacao) {
         const municipiosFC = obterMunicipiosFC();
-        const bboxEstado = _expandBboxPdf(extrairBboxFeicoesMapaParecer([{ featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5], 0.04);
+        const bboxEstado = _expandBboxPdf(extrairBboxFeicoesMapaRelatório([{ featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5], 0.04);
         const bbox = ajustarBboxAspecto(bboxEstado, { x: frame.x + 12, y: frame.y + 54, w: frame.w - 24, h: frame.h - 66 });
         const inner = { x: frame.x + 12, y: frame.y + 54, w: frame.w - 24, h: frame.h - 66 };
         const project = criarProjetor(bbox, inner);
@@ -4828,7 +4921,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       const municipiosFC = obterMunicipiosFC();
       const piauiFC = obterPiauiFC();
-      const bboxEstado = extrairBboxFeicoesMapaParecer([{ featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5];
+      const bboxEstado = extrairBboxFeicoesMapaRelatório([{ featureCollection: municipiosFC }]) || [-46, -11, -40, -2.5];
       const featBbox = _bboxFeaturePdf(feature) || bboxEstado;
       const bboxBruto = isLocalizacao
         ? _expandBboxPdf(bboxEstado, 0.045)
@@ -4854,8 +4947,8 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       _desenharGradeMolduraCanvas(ctx, mapBbox, mainFrame);
 
-      const camadasVisiveis = _listarCamadasMapaParecerSelecionadas(feature, tipoSelecao)
-        .sort((a, b) => obterPesoCamadaMapaParecer(a.camada) - obterPesoCamadaMapaParecer(b.camada));
+      const camadasVisiveis = _listarCamadasMapaRelatórioSelecionadas(feature, tipoSelecao)
+        .sort((a, b) => obterPesoCamadaMapaRelatório(a.camada) - obterPesoCamadaMapaRelatório(b.camada));
 
       ctx.save();
       ctx.beginPath(); ctx.rect(mainFrame.x, mainFrame.y, mainFrame.w, mainFrame.h); ctx.clip();
@@ -4911,11 +5004,11 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       try {
         return { dataUrl: canvas.toDataURL('image/png'), width, height };
       } catch (erroCanvas) {
-        console.error('Falha ao converter mapa do parecer em imagem:', erroCanvas);
+        console.error('Falha ao converter mapa do relatório em imagem:', erroCanvas);
         // Alguns servidores de imagem de satélite bloqueiam exportação do canvas.
         // Nesse caso, refaz o mapa automaticamente sem satélite para não impedir o download do PDF.
         if (incluirSatelite && !options.__fallbackSemSatelite) {
-          return await criarMapaCartograficoParecerImagem({
+          return await criarMapaCartograficoRelatórioImagem({
             ...options,
             incluirSatelite: false,
             __fallbackSemSatelite: true,
@@ -4966,6 +5059,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
               textoPdfAtlas(item.subclasse, ''),
               textoPdfAtlas(item.unidade, ''),
               textoPdfAtlas(item.fonte, ''),
+              textoPdfAtlas(item.ano, ''),
               textoPdfAtlas(item.classificacao, '')
             ].join('\u0001');
             if (!mapaItens.has(chave)) {
@@ -4974,6 +5068,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
                 valor: 0,
                 unidade: textoPdfAtlas(item.unidade),
                 fonte: textoPdfAtlas(item.fonte),
+                ano: textoPdfAtlas(item.ano),
                 classificacao: textoPdfAtlas(item.classificacao, ''),
                 municipios: new Set()
               });
@@ -5001,7 +5096,8 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       const itens = grupos.flatMap(grupo => grupo.itens || []);
       const fontes = [...new Set(itens.map(item => textoPdfAtlas(item.fonte, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
       const unidades = [...new Set(itens.map(item => textoPdfAtlas(item.unidade, '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      return { fontes, unidades };
+      const anos = [...new Set(itens.map(item => textoPdfAtlas(item.ano, '')).filter(Boolean))].sort();
+      return { fontes, unidades, anos };
     }
 
     function adicionarTabelaSubclassesPdf(layout, grupos = [], options = {}) {
@@ -5019,22 +5115,25 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       layout.addTable([
         ['Potencialidades com subclasses', formatNumeroPTBR(grupos.length, 0)],
         ['Registros de subclasses', formatNumeroPTBR(total, 0)],
+        ['Ano(s)', meta.anos.length ? meta.anos.join(', ') : '-'],
         ['Fonte(s)', meta.fontes.length ? meta.fontes.join(', ') : '-'],
         ['Unidade(s) de medida', meta.unidades.length ? meta.unidades.join(', ') : '-']
       ], 54);
 
       const colsMunicipio = [
-        { key: 'subclasse', label: 'Subclasse', w: 72, align: 'left' },
-        { key: 'valor', label: 'Quantidade/valor', w: 31, align: 'right' },
-        { key: 'unidade', label: 'Unidade', w: 31, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: contentW - 72 - 31 - 31, align: 'left' }
+        { key: 'subclasse', label: 'Subclasse', w: 66, align: 'left' },
+        { key: 'valor', label: 'Quantidade/valor', w: 30, align: 'right' },
+        { key: 'unidade', label: 'Unidade', w: 30, align: 'left' },
+        { key: 'fonte', label: 'Fonte', w: 26, align: 'left' },
+        { key: 'ano', label: 'Ano', w: contentW - 66 - 30 - 30 - 26, align: 'left' }
       ];
       const colsTerritorio = [
-        { key: 'subclasse', label: 'Subclasse', w: 48, align: 'left' },
+        { key: 'subclasse', label: 'Subclasse', w: 46, align: 'left' },
         { key: 'valor', label: 'Quantidade agregada', w: 31, align: 'right' },
         { key: 'unidade', label: 'Unidade', w: 24, align: 'left' },
-        { key: 'fonte', label: 'Fonte', w: 22, align: 'left' },
-        { key: 'municipios', label: 'Municípios', w: contentW - 48 - 31 - 24 - 22, align: 'left' }
+        { key: 'fonte', label: 'Fonte', w: 18, align: 'left' },
+        { key: 'ano', label: 'Ano', w: 14, align: 'left' },
+        { key: 'municipios', label: 'Municípios', w: contentW - 46 - 31 - 24 - 18 - 14, align: 'left' }
       ];
       const cols = territorial ? colsTerritorio : colsMunicipio;
 
@@ -5078,6 +5177,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           valor: formatarValorSubclassePdf(item),
           unidade: textoPdfAtlas(item.unidade),
           fonte: textoPdfAtlas(item.fonte),
+          ano: textoPdfAtlas(item.ano),
           municipios
         };
       }
@@ -5117,10 +5217,10 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       });
     }
 
-    async function gerarParecerPdfMunicipio() {
+    async function gerarRelatórioPdfMunicipio() {
       const dados = obterDadosMunicipioAtualParaRelatorio();
       if (!dados) {
-        alert('Selecione um município ou clique em um símbolo de potencialidade antes de baixar o parecer em PDF.');
+        alert('Selecione um município ou clique em um símbolo de potencialidade antes de baixar o relatório em PDF.');
         return;
       }
 
@@ -5240,7 +5340,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           }
         }
 
-        adicionarCapaInstitucionalPdf(doc, pageW, pageH, headerTitle, headerSubTitle, 'PARECER MUNICIPAL', coverRows);
+        adicionarCapaInstitucionalPdf(doc, pageW, pageH, headerTitle, headerSubTitle, 'RELATÓRIO MUNICIPAL', coverRows);
         doc.addPage();
         adicionarCabecalhoPdf(doc, pageW, headerTitle, headerSubTitle);
         y = 43;
@@ -5250,17 +5350,17 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       const props = dados.props || {};
       const presentes = obterPotencialidadesPresentesRelatorio(props);
-      const campoSubclasseParecer = ((currentSelectedType === 'potencialidade' || currentSelectedType === 'potencialidade_municipio') && currentSelectedPotencialidadeCampo)
+      const campoSubclasseRelatório = ((currentSelectedType === 'potencialidade' || currentSelectedType === 'potencialidade_municipio') && currentSelectedPotencialidadeCampo)
         ? currentSelectedPotencialidadeCampo
         : null;
-      const gruposSubclassesParecer = prepararSubclassesMunicipioParaPdf(props, campoSubclasseParecer ? [campoSubclasseParecer] : null);
-      const totalSubclassesParecer = gruposSubclassesParecer.reduce((soma, grupo) => soma + (grupo.itens || []).length, 0);
+      const gruposSubclassesRelatório = prepararSubclassesMunicipioParaPdf(props, campoSubclasseRelatório ? [campoSubclasseRelatório] : null);
+      const totalSubclassesRelatório = gruposSubclassesRelatório.reduce((soma, grupo) => soma + (grupo.itens || []).length, 0);
       const layout = createLayout('RELATÓRIO MUNICIPAL DE POTENCIALIDADES', String(props.NM_MUN || 'Município selecionado'), [
         ['Município', props.NM_MUN || '-'],
         ['Território', props.NM_TD || '-'],
         ['População', fmt('pop_censo2022', props.pop_censo2022)],
         ['Potencialidades', String(presentes.length)],
-        ['Subclasses T1', String(totalSubclassesParecer)]
+        ['Subclasses T1', String(totalSubclassesRelatório)]
       ]);
       const { doc, margin, contentW, addTitle, addParagraph, addTable, ensureSpace, drawFooter } = layout;
 
@@ -5272,7 +5372,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         ['PIB 2021', fmt('pib_2021', props.pib_2021)],
         ['Área', fmt('AREA_KM2', props.AREA_KM2)],
         ['Potencialidades', String(presentes.length)],
-        ['Subclasses T1', String(totalSubclassesParecer)]
+        ['Subclasses T1', String(totalSubclassesRelatório)]
       ]);
 
       addTitle('1. Identificação do município');
@@ -5300,7 +5400,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         console.error('Falha ao gerar mapa de localização OSM do município:', erroMapaLocalizacao);
       }
       try {
-        imgDetalhe = await criarMapaCartograficoParecerImagem({
+        imgDetalhe = await criarMapaCartograficoRelatórioImagem({
           feature: dados.municipioFeature,
           tipoSelecao: 'municipio',
           incluirSatelite: true,
@@ -5313,7 +5413,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       }
 
       addTitle('2. Mapas do município');
-      addParagraph('A seguir são apresentados os mapas do parecer em estilo cartográfico técnico, com moldura, grade de coordenadas, seta norte, escala gráfica, legenda, mapa de situação e quadro de fontes. O segundo mapa incorpora imagem de satélite e as camadas visíveis do Atlas web no momento da geração do documento.');
+      addParagraph('A seguir são apresentados os mapas do relatório em estilo cartográfico técnico, com moldura, grade de coordenadas, seta norte, escala gráfica, legenda, mapa de situação e quadro de fontes. O segundo mapa incorpora imagem de satélite e as camadas visíveis do Atlas web no momento da geração do documento.');
       if (imgLocalizacao) {
         const imgLocH = Math.min(112, contentW * (imgLocalizacao.height / imgLocalizacao.width));
         ensureSpace(imgLocH + 8);
@@ -5355,26 +5455,26 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         ['PIB (%) do território', fmt('pib_porcent_TD', props.pib_porcent_TD)]
       ]);
 
-      addTitle(campoSubclasseParecer ? '6. Subclasses da potencialidade selecionada' : '6. Subclasses categorizadas');
-      adicionarTabelaSubclassesPdf(layout, gruposSubclassesParecer, {
+      addTitle(campoSubclasseRelatório ? '6. Subclasses da potencialidade selecionada' : '6. Subclasses categorizadas');
+      adicionarTabelaSubclassesPdf(layout, gruposSubclassesRelatório, {
         territorial: false,
-        descricao: campoSubclasseParecer
-          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseParecer}, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.`
-          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida e fonte conforme a planilha carregada.',
+        descricao: campoSubclasseRelatório
+          ? `A tabela a seguir apresenta as subclasses T1 vinculadas à potencialidade ${campoSubclasseRelatório}, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.`
+          : 'A tabela a seguir apresenta as subclasses T1 vinculadas ao município, com quantidade/valor, unidade de medida, fonte e ano conforme a planilha carregada.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para o município na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este parecer foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
+      addParagraph('Este relatório foi gerado automaticamente a partir das camadas e informações disponíveis no mapa web. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica, com moldura, escala, norte, legenda, fontes e mapa de situação. Antes do uso oficial, recomenda-se validar a consistência dos atributos, a escala de análise e a atualização das bases utilizadas.');
 
       drawFooter();
-      doc.save(`parecer_municipio_${safeFileName(props.NM_MUN || 'municipio')}.pdf`);
+      doc.save(`relatório_municipio_${safeFileName(props.NM_MUN || 'municipio')}.pdf`);
     }
 
-    async function gerarParecerPdfTerritorio() {
+    async function gerarRelatórioPdfTerritorio() {
       const dados = obterDadosTerritorioAtualParaRelatorio();
       if (!dados) {
-        alert('Selecione um território antes de baixar o parecer em PDF.');
+        alert('Selecione um território antes de baixar o relatório em PDF.');
         return;
       }
 
@@ -5476,7 +5576,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           }
         }
 
-        adicionarCapaInstitucionalPdf(doc, pageW, pageH, headerTitle, headerSubTitle, 'PARECER TERRITORIAL', coverRows);
+        adicionarCapaInstitucionalPdf(doc, pageW, pageH, headerTitle, headerSubTitle, 'RELATÓRIO TERRITORIAL', coverRows);
         doc.addPage();
         adicionarCabecalhoPdf(doc, pageW, headerTitle, headerSubTitle);
         y = 43;
@@ -5535,7 +5635,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         console.error('Falha ao gerar mapa de localização OSM do território:', erroMapaLocalizacao);
       }
       try {
-        imgDetalhe = await criarMapaCartograficoParecerImagem({
+        imgDetalhe = await criarMapaCartograficoRelatórioImagem({
           feature: dados.territorioFeature,
           tipoSelecao: 'territorio',
           incluirSatelite: true,
@@ -5548,7 +5648,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       }
 
       addTitle('2. Mapas do território');
-      addParagraph('Os mapas do parecer territorial seguem composição cartográfica técnica, com moldura, grade de coordenadas, escala gráfica, seta norte, legenda, mapa de situação e quadro de fontes. O segundo mapa usa imagem de satélite e sobrepõe as camadas visíveis do Atlas web no momento da emissão do documento.');
+      addParagraph('Os mapas do relatório territorial seguem composição cartográfica técnica, com moldura, grade de coordenadas, escala gráfica, seta norte, legenda, mapa de situação e quadro de fontes. O segundo mapa usa imagem de satélite e sobrepõe as camadas visíveis do Atlas web no momento da emissão do documento.');
       if (imgLocalizacao) {
         const imgLocH = Math.min(112, contentW * (imgLocalizacao.height / imgLocalizacao.width));
         ensureSpace(imgLocH + 8);
@@ -5582,7 +5682,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       }
 
       addTitle('5. Síntese territorial');
-      addParagraph('Os totais de população e PIB apresentados neste parecer foram calculados pela soma dos valores dos municípios associados ao território, com base na camada municipal carregada no Atlas.');
+      addParagraph('Os totais de população e PIB apresentados neste relatório foram calculados pela soma dos valores dos municípios associados ao território, com base na camada municipal carregada no Atlas.');
       addTable([
         ['Municípios agregados', formatNumeroPTBR(dados.municipios.length, 0)],
         ['População total agregada', formatNumeroPTBR(td.pop || 0, 0)],
@@ -5593,39 +5693,39 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       addTitle('6. Subclasses categorizadas do território');
       adicionarTabelaSubclassesPdf(layout, gruposSubclassesTerritorio, {
         territorial: true,
-        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte e municípios com ocorrência na planilha categorizada T1.',
+        descricao: 'A tabela a seguir agrega, por potencialidade e subclasse, os valores dos municípios integrantes do território. São apresentados quantidade/valor agregado, unidade de medida, fonte, ano e municípios com ocorrência na planilha categorizada T1.',
         emptyText: 'Nenhuma subclasse T1 foi encontrada para os municípios do território na planilha carregada.'
       });
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este parecer territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes e unidades de medida foram incorporadas conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
+      addParagraph('Este relatório territorial foi gerado automaticamente a partir das camadas disponíveis no mapa web. Os valores agregados resultam da soma dos municípios vinculados ao território na base municipal. As subclasses, fontes, unidades de medida e anos foram incorporados conforme a planilha categorizada T1 carregada no Atlas. Os mapas adotam composição cartográfica técnica e representam as camadas visíveis no momento da geração do documento.');
 
       drawFooter();
-      doc.save(`parecer_territorio_${safeFileName(props.NM_TD || 'territorio')}.pdf`);
+      doc.save(`relatório_territorio_${safeFileName(props.NM_TD || 'territorio')}.pdf`);
     }
 
 
-    async function gerarParecerPdfAtual(event) {
+    async function gerarRelatórioPdfAtual(event) {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const botoesPdf = Array.from(document.querySelectorAll('[id="downloadMunicipioPdf"]'));
       botoesPdf.forEach(btn => {
         btn.disabled = true;
         btn.dataset.textoOriginal = btn.dataset.textoOriginal || btn.textContent;
-        btn.textContent = '⏳ Gerando parecer...';
+        btn.textContent = '⏳ Gerando relatório...';
       });
       try {
         if (currentSelectedType === 'territorio' || (currentSelectedFeature?.properties?.NM_TD && !currentSelectedFeature?.properties?.NM_MUN && obterDadosTerritorioAtualParaRelatorio())) {
-          await gerarParecerPdfTerritorio();
+          await gerarRelatórioPdfTerritorio();
         } else {
-          await gerarParecerPdfMunicipio();
+          await gerarRelatórioPdfMunicipio();
         }
-      } catch (erroParecer) {
-        console.error('Erro ao gerar parecer PDF:', erroParecer);
-        alert('Não foi possível baixar o parecer PDF. O mapa continuará funcionando. Abra o console do navegador para ver o erro técnico.');
+      } catch (erroRelatório) {
+        console.error('Erro ao gerar relatório PDF:', erroRelatório);
+        alert('Não foi possível baixar o relatório PDF. O mapa continuará funcionando. Abra o console do navegador para ver o erro técnico.');
       } finally {
         botoesPdf.forEach(btn => {
           btn.disabled = false;
-          btn.textContent = btn.dataset.textoOriginal || '📄 Baixar parecer PDF';
+          btn.textContent = btn.dataset.textoOriginal || '📄 Baixar relatório PDF';
         });
       }
     }
@@ -5638,7 +5738,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         btn.onclick = downloadCurrentSelectionAsGeoJSON;
       });
       document.querySelectorAll('[id="downloadMunicipioPdf"]').forEach(btn => {
-        btn.onclick = gerarParecerPdfAtual;
+        btn.onclick = gerarRelatórioPdfAtual;
       });
     }
 
@@ -5779,7 +5879,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         <div class="download-box">
           <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
           <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
         </div>
       `;
       renderInfoPanel(props.NM_MUN || 'Município', statsHtml, bodyHtml, 'municipio');
@@ -5842,7 +5942,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         <div class="download-box" style="border-color:${cor};background:${mixHexColor(cor, 0.92)};">
           <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
           <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
         </div>
       `;
       renderInfoPanel(nome || 'Território', statsHtml, bodyHtml, 'territorio', cor);
@@ -6191,7 +6291,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
     }
 
     function stylePotencialidades() {
-      // A camada de potencialidades fica invisível no mapa para não aparecer o círculo/ponto.
+      // A camada de potencialidades fica invisível no mapa para não arelatório o círculo/ponto.
       // Os ícones oficiais continuam sendo desenhados pelo symbolLayerGroup.
       return {
         radius: 0.01,
@@ -6930,7 +7030,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           <div class="download-box">
             <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
             <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-            <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+            <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
           </div>
         `,
         'municipio'
@@ -7522,7 +7622,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           <div class="download-box">
             <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
             <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-            <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+            <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
           </div>
         `,
         'municipio'
@@ -10309,13 +10409,13 @@ function hoverMinerLeave(e) {
 
 
     /* =========================================================
-       PARECER AUTOMÁTICO DA ÁREA ENVIADA POR KML/KMZ
+       RELATÓRIO AUTOMÁTICO DA ÁREA ENVIADA POR KML/KMZ
        Analisa a geometria carregada contra as camadas disponíveis
        no Atlas e gera PDF com enquadramento territorial e temático.
     ========================================================= */
 
-    function atualizarBotaoParecerUpload() {
-      const btn = document.getElementById('parecerUploadBtn');
+    function atualizarBotaoRelatórioUpload() {
+      const btn = document.getElementById('relatórioUploadBtn');
       const mapBtn = document.getElementById('mapaSobreposicoesUploadBtn');
       const ativo = !!lastUploadedAnalysis;
 
@@ -10323,8 +10423,8 @@ function hoverMinerLeave(e) {
         btn.style.display = ativo ? 'block' : 'none';
         btn.disabled = !ativo;
         btn.title = ativo
-          ? `Gerar parecer da área enviada: ${lastUploadedAnalysis.label || 'KML carregado'}`
-          : 'Envie um KML/KMZ para habilitar o parecer da área.';
+          ? `Gerar relatório da área enviada: ${lastUploadedAnalysis.label || 'KML carregado'}`
+          : 'Envie um KML/KMZ para habilitar o relatório da área.';
       }
 
       if (mapBtn) {
@@ -10345,7 +10445,7 @@ function hoverMinerLeave(e) {
       };
       uploadedAnalysisLayers.push(info);
       lastUploadedAnalysis = info;
-      atualizarBotaoParecerUpload();
+      atualizarBotaoRelatórioUpload();
 
       // O omnivore normalmente preenche a camada de forma síncrona, mas o
       // pequeno atraso evita ler a geometria antes do Leaflet concluir a criação.
@@ -10356,7 +10456,7 @@ function hoverMinerLeave(e) {
         } catch (err) {
           console.warn('Não foi possível preparar o KML para análise:', err);
         }
-        atualizarBotaoParecerUpload();
+        atualizarBotaoRelatórioUpload();
       }, 90);
       return info;
     }
@@ -10384,16 +10484,16 @@ function hoverMinerLeave(e) {
           <div class="section">
             <h3>Resumo</h3>
             <p class="muted">Arquivo carregado no mapa. ${centroTxt}</p>
-            <p class="muted">Clique no botão abaixo para gerar o parecer técnico com o mapa das feições sobrepostas dentro do próprio PDF.</p>
+            <p class="muted">Clique no botão abaixo para gerar o relatório técnico com o mapa das feições sobrepostas dentro do próprio PDF.</p>
           </div>
           <div class="download-box">
-            <button id="btnParecerKmlInfo">📄 Gerar parecer da área KML</button>
+            <button id="btnRelatórioKmlInfo">📄 Gerar relatório da área KML</button>
           </div>
         `,
         'geral'
       );
-      const btnInfo = document.getElementById('btnParecerKmlInfo');
-      if (btnInfo) btnInfo.onclick = () => gerarParecerPdfUploadKML(info);
+      const btnInfo = document.getElementById('btnRelatórioKmlInfo');
+      if (btnInfo) btnInfo.onclick = () => gerarRelatórioPdfUploadKML(info);
     }
 
     function getUploadFeatureCollection(info) {
@@ -10488,8 +10588,8 @@ function hoverMinerLeave(e) {
     function iterarFeatureLayers(root, callback) {
       if (!root) return;
 
-      // Também permite usar GeoJSON puro na análise do parecer.
-      // Isso garante que a camada Biomas/Caatinga entre no parecer mesmo quando
+      // Também permite usar GeoJSON puro na análise do relatório.
+      // Isso garante que a camada Biomas/Caatinga entre no relatório mesmo quando
       // a camada estiver desativada no mapa ou ainda não tiver sido adicionada ao Leaflet.
       if (root.type === 'FeatureCollection' && Array.isArray(root.features)) {
         root.features.forEach(feature => {
@@ -10924,7 +11024,7 @@ function hoverMinerLeave(e) {
     }
 
 
-    function obterPesoCamadaMapaParecer(nomeCamada) {
+    function obterPesoCamadaMapaRelatório(nomeCamada) {
       const n = normalizeText(nomeCamada || '');
       if (n.includes('estado')) return 1;
       if (n.includes('bioma')) return 2;
@@ -10969,7 +11069,7 @@ function hoverMinerLeave(e) {
       return estilo;
     }
 
-    function extrairBboxFeicoesMapaParecer(camadas) {
+    function extrairBboxFeicoesMapaRelatório(camadas) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       function visitCoords(coords) {
         if (!Array.isArray(coords)) return;
@@ -11208,7 +11308,7 @@ function hoverMinerLeave(e) {
       return desenhou;
     }
 
-    function _obterEstiloMapaParecerKML(nomeCamada, cor, modo = 'zoom') {
+    function _obterEstiloMapaRelatórioKML(nomeCamada, cor, modo = 'zoom') {
       const n = normalizeText(nomeCamada || '');
       if (modo === 'localizacao') {
         if (n.includes('kml')) return { stroke: '#0f7a2b', fill: 'rgba(22, 163, 74, 0.58)', lineWidth: 3.4, dash: [], pointShape: 'diamond', pointSize: 8 };
@@ -11236,7 +11336,7 @@ function hoverMinerLeave(e) {
       let ly = frame.y + 55;
       linhas.forEach(item => {
         if (ly > frame.y + frame.h - 10) return;
-        const estilo = _obterEstiloMapaParecerKML(item.nome, item.cor, modo);
+        const estilo = _obterEstiloMapaRelatórioKML(item.nome, item.cor, modo);
         ctx.save();
         ctx.beginPath();
         if (estilo.fill) {
@@ -11257,7 +11357,7 @@ function hoverMinerLeave(e) {
       ctx.restore();
     }
 
-    async function criarImagemMapaParecerKML(info = lastUploadedAnalysis, options = {}) {
+    async function criarImagemMapaRelatórioKML(info = lastUploadedAnalysis, options = {}) {
       const dados = prepararDadosMapaSobreposicoesInterno(info);
       if (!dados || !dados.uploadFC || !dados.uploadFC.features || !dados.uploadFC.features.length) return null;
 
@@ -11303,7 +11403,7 @@ function hoverMinerLeave(e) {
           if (piauiLayer && typeof piauiLayer.toGeoJSON === 'function') bbox = turf.bbox(piauiLayer.toGeoJSON());
         } catch (_) {}
       }
-      if (!bbox) bbox = extrairBboxFeicoesMapaParecer(modo === 'localizacao' ? camadasDesenho : camadas);
+      if (!bbox) bbox = extrairBboxFeicoesMapaRelatório(modo === 'localizacao' ? camadasDesenho : camadas);
       if (!bbox) return null;
 
       const paddingFactor = typeof options.paddingFactor === 'number' ? options.paddingFactor : (modo === 'localizacao' ? 0.10 : (modo === 'geral' || modo === 'atual' ? 0.02 : 0.08));
@@ -11371,7 +11471,7 @@ function hoverMinerLeave(e) {
       let osmOk = false;
       if (usarOSM) {
         try { osmOk = await _desenharFundoOSMCanvas(ctx, projeto, { timeoutMs: 3200 }); }
-        catch (err) { console.warn('Base OSM indisponível para o parecer:', err); }
+        catch (err) { console.warn('Base OSM indisponível para o relatório:', err); }
       }
 
       if (!osmOk) {
@@ -11403,13 +11503,13 @@ function hoverMinerLeave(e) {
       ctx.fillRect(mapX, mapY, mapW, mapH);
       ctx.restore();
 
-      const ordered = camadasDesenho.slice().sort((a, b) => obterPesoCamadaMapaParecer(a.camada) - obterPesoCamadaMapaParecer(b.camada));
+      const ordered = camadasDesenho.slice().sort((a, b) => obterPesoCamadaMapaRelatório(a.camada) - obterPesoCamadaMapaRelatório(b.camada));
       ctx.save();
       ctx.beginPath();
       ctx.rect(mapX, mapY, mapW, mapH);
       ctx.clip();
       ordered.forEach(item => {
-        const estilo = _obterEstiloMapaParecerKML(item.camada, item.cor, modo);
+        const estilo = _obterEstiloMapaRelatórioKML(item.camada, item.cor, modo);
         ((item.featureCollection && item.featureCollection.features) || []).forEach(f => {
           if (f && f.geometry) desenharGeometriaCanvas(ctx, f.geometry, project, estilo);
         });
@@ -11469,7 +11569,7 @@ function hoverMinerLeave(e) {
         ], modo);
 
         // mini mapa de detalhe à direita, sem distorção
-        const bboxInset = _expandBboxPdf(extrairBboxFeicoesMapaParecer([{ featureCollection: JSON.parse(JSON.stringify(dados.uploadFC)) }]) || bbox, 0.16);
+        const bboxInset = _expandBboxPdf(extrairBboxFeicoesMapaRelatório([{ featureCollection: JSON.parse(JSON.stringify(dados.uploadFC)) }]) || bbox, 0.16);
         const insetFrame = { x: legendX, y: legendY, w: legendW, h: 260 };
         roundRect(insetFrame.x, insetFrame.y, insetFrame.w, insetFrame.h, 14);
         ctx.fillStyle = '#f8fafc';
@@ -11488,7 +11588,7 @@ function hoverMinerLeave(e) {
         ctx.rect(insetFrame.x + 8, insetFrame.y + 42, insetFrame.w - 16, insetFrame.h - 52);
         ctx.clip();
         (dados.uploadFC.features || []).forEach(f => {
-          if (f && f.geometry) desenharGeometriaCanvas(ctx, f.geometry, coord => projInset.project(coord), _obterEstiloMapaParecerKML('Área KML enviada', '#16a34a', 'localizacao'));
+          if (f && f.geometry) desenharGeometriaCanvas(ctx, f.geometry, coord => projInset.project(coord), _obterEstiloMapaRelatórioKML('Área KML enviada', '#16a34a', 'localizacao'));
         });
         ctx.restore();
         ctx.strokeStyle = '#64748b';
@@ -11536,16 +11636,16 @@ function hoverMinerLeave(e) {
 
       ctx.fillStyle = '#94a3b8';
       ctx.font = '12px Arial';
-      ctx.fillText(usarOSM ? 'Base cartográfica rasterizada: © OpenStreetMap contributors. Mapa gerado automaticamente para o parecer técnico.' : 'Mapa técnico vetorial gerado automaticamente para o parecer.', 44, height - 30);
+      ctx.fillText(usarOSM ? 'Base cartográfica rasterizada: © OpenStreetMap contributors. Mapa gerado automaticamente para o relatório técnico.' : 'Mapa técnico vetorial gerado automaticamente para o relatório.', 44, height - 30);
 
       try {
         return { dataUrl: canvas.toDataURL('image/png'), width, height };
       } catch (err) {
         if (usarOSM && !options._semOSM) {
           console.warn('Canvas OSM bloqueado; refazendo mapa com fundo vetorial.', err);
-          return await criarImagemMapaParecerKML(info, { ...options, baseOSM: false, _semOSM: true });
+          return await criarImagemMapaRelatórioKML(info, { ...options, baseOSM: false, _semOSM: true });
         }
-        console.warn('Não foi possível exportar o mapa do parecer.', err);
+        console.warn('Não foi possível exportar o mapa do relatório.', err);
         return null;
       }
     }
@@ -11575,7 +11675,7 @@ function hoverMinerLeave(e) {
           .filter(f => f && f.geometry)
       };
 
-      let bbox = extrairBboxFeicoesMapaParecer([
+      let bbox = extrairBboxFeicoesMapaRelatório([
         { featureCollection: municipiosFC },
         { featureCollection: uploadFC }
       ]);
@@ -11908,9 +12008,9 @@ function hoverMinerLeave(e) {
       }
     }
 
-    async function gerarParecerPdfUploadKML(info = lastUploadedAnalysis) {
+    async function gerarRelatórioPdfUploadKML(info = lastUploadedAnalysis) {
       if (!info) {
-        alert('Envie primeiro um arquivo KML ou KMZ para gerar o parecer da área.');
+        alert('Envie primeiro um arquivo KML ou KMZ para gerar o relatório da área.');
         return;
       }
       if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -12105,34 +12205,34 @@ function hoverMinerLeave(e) {
       addTitle('3. Mapas das feições sobrepostas');
       addParagraph('Os mapas a seguir apresentam a localização da área enviada e as principais sobreposições identificadas. A composição prioriza leitura visual, enquadramento adequado e distinção clara entre a área em análise, municípios, territórios e demais camadas temáticas.');
 
-      const mapaContextoParecer = await criarImagemMapaLocalizacaoKMLModelo(info, {
+      const mapaContextoRelatório = await criarImagemMapaLocalizacaoKMLModelo(info, {
         baseOSM: true
       });
-      if (mapaContextoParecer && mapaContextoParecer.dataUrl) {
+      if (mapaContextoRelatório && mapaContextoRelatório.dataUrl) {
         const imgW = contentW;
-        const imgH = Math.min(136, imgW * (mapaContextoParecer.height / mapaContextoParecer.width));
+        const imgH = Math.min(136, imgW * (mapaContextoRelatório.height / mapaContextoRelatório.width));
         ensureSpace(imgH + 8);
-        doc.addImage(mapaContextoParecer.dataUrl, 'PNG', margin, y, imgW, imgH, undefined, 'FAST');
+        doc.addImage(mapaContextoRelatório.dataUrl, 'PNG', margin, y, imgW, imgH, undefined, 'FAST');
         y += imgH + 6;
       }
 
-      const mapaZoomParecer = await criarImagemMapaParecerKML(info, {
+      const mapaZoomRelatório = await criarImagemMapaRelatórioKML(info, {
         modo: 'zoom',
         titulo: 'Mapa com zoom das sobreposições',
         subtitulo: 'Aproximação da área KML com destaque para as camadas efetivamente intersectadas, incluindo Biomas/Caatinga quando identificada',
         paddingFactor: 0.08,
         baseOSM: true
       });
-      if (mapaZoomParecer && mapaZoomParecer.dataUrl) {
+      if (mapaZoomRelatório && mapaZoomRelatório.dataUrl) {
         const imgW = contentW;
-        const imgH = Math.min(114, imgW * (mapaZoomParecer.height / mapaZoomParecer.width));
+        const imgH = Math.min(114, imgW * (mapaZoomRelatório.height / mapaZoomRelatório.width));
         ensureSpace(imgH + 10);
-        doc.addImage(mapaZoomParecer.dataUrl, 'PNG', margin, y, imgW, imgH, undefined, 'FAST');
+        doc.addImage(mapaZoomRelatório.dataUrl, 'PNG', margin, y, imgW, imgH, undefined, 'FAST');
         y += imgH + 4;
         addParagraph('Mapa 2 — Zoom da área KML, com base OSM rasterizada e camadas sobrepostas representadas por simbologia temática semelhante à do mapa web.');
       }
-      if ((!mapaContextoParecer || !mapaContextoParecer.dataUrl) && (!mapaZoomParecer || !mapaZoomParecer.dataUrl)) {
-        addParagraph('Não foi possível renderizar os mapas sintéticos das sobreposições para este parecer.');
+      if ((!mapaContextoRelatório || !mapaContextoRelatório.dataUrl) && (!mapaZoomRelatório || !mapaZoomRelatório.dataUrl)) {
+        addParagraph('Não foi possível renderizar os mapas sintéticos das sobreposições para este relatório.');
       }
 
       addTitle('4. Análise de interseção por camada');
@@ -12165,30 +12265,30 @@ function hoverMinerLeave(e) {
       }
 
       addTitle('7. Observações técnicas');
-      addParagraph('Este parecer foi gerado automaticamente no navegador por interseção espacial entre o KML/KMZ enviado e as camadas carregadas no Atlas. A análise tem caráter técnico-informativo e depende da escala, atualização e precisão posicional das bases utilizadas. Para uso oficial em processo, licenciamento, parecer definitivo ou tomada de decisão, recomenda-se validação complementar em ambiente SIG.');
+      addParagraph('Este relatório foi gerado automaticamente no navegador por interseção espacial entre o KML/KMZ enviado e as camadas carregadas no Atlas. A análise tem caráter técnico-informativo e depende da escala, atualização e precisão posicional das bases utilizadas. Para uso oficial em processo, licenciamento, relatório definitivo ou tomada de decisão, recomenda-se validação complementar em ambiente SIG.');
       addParagraph('A área e o perímetro são aproximações calculadas a partir da geometria enviada em coordenadas geográficas. Camadas ainda não carregadas no navegador são indicadas como “não carregada”.');
 
       drawFooter();
-      doc.save(`parecer_area_kml_${safeFileName(info.label || 'area_kml')}.pdf`);
+      doc.save(`relatório_area_kml_${safeFileName(info.label || 'area_kml')}.pdf`);
     }
 
     const uploadBtnEl = document.getElementById('uploadBtn');
     const uploadInputEl = document.getElementById('uploadInput');
-    const parecerUploadBtnEl = document.getElementById('parecerUploadBtn');
+    const relatórioUploadBtnEl = document.getElementById('relatórioUploadBtn');
 
     uploadBtnEl.addEventListener('click', () => uploadInputEl.click());
-    if (parecerUploadBtnEl) parecerUploadBtnEl.addEventListener('click', async () => {
-      parecerUploadBtnEl.disabled = true;
-      const textoOriginal = parecerUploadBtnEl.textContent;
-      parecerUploadBtnEl.textContent = '⏳ Gerando parecer...';
+    if (relatórioUploadBtnEl) relatórioUploadBtnEl.addEventListener('click', async () => {
+      relatórioUploadBtnEl.disabled = true;
+      const textoOriginal = relatórioUploadBtnEl.textContent;
+      relatórioUploadBtnEl.textContent = '⏳ Gerando relatório...';
       try {
-        await gerarParecerPdfUploadKML();
+        await gerarRelatórioPdfUploadKML();
       } catch (err) {
-        console.error('Erro ao gerar parecer da área KML:', err);
-        alert('Não foi possível gerar o parecer da área KML. Verifique o console do navegador para detalhes.');
+        console.error('Erro ao gerar relatório da área KML:', err);
+        alert('Não foi possível gerar o relatório da área KML. Verifique o console do navegador para detalhes.');
       } finally {
-        parecerUploadBtnEl.disabled = false;
-        parecerUploadBtnEl.textContent = textoOriginal || '📄 Gerar parecer';
+        relatórioUploadBtnEl.disabled = false;
+        relatórioUploadBtnEl.textContent = textoOriginal || '📄 Gerar relatório';
       }
     });
 
@@ -12399,7 +12499,7 @@ function hoverMinerLeave(e) {
                 // Algumas geometrias de bioma, principalmente multipolígonos grandes,
                 // podem falhar ou retornar nulo no intersect. Nesses casos, usa-se um
                 // recorte por bbox como fallback para não perder a Caatinga/Cerrado
-                // no mapa, no cruzamento espacial e no parecer PDF.
+                // no mapa, no cruzamento espacial e no relatório PDF.
                 if (!inter || !inter.geometry) {
                   try {
                     if (piauiBBox && fBBox && bboxIntersects(fBBox, piauiBBox)) inter = turf.bboxClip(f, piauiBBox);
@@ -12490,7 +12590,7 @@ function hoverMinerLeave(e) {
     }
 
     function aplicarSelecaoMunicipio(item) {
-      // Ao pesquisar um município, centraliza automaticamente a feição no mapa principal.
+      // Mantém o zoom atual também quando o município é selecionado pela busca.
       fecharTooltipMunicipioAtual();
       fecharTooltipMunicipio(item.layer);
 
@@ -12505,25 +12605,6 @@ function hoverMinerLeave(e) {
       currentSelectedType = 'municipio';
       updateInfoPanelFromMunicipio(item.layer.feature.properties);
       aplicarPotencialidadesDoMunicipio(item.layer.feature.properties);
-
-      try {
-        const bounds = layerBoundsSafe(item.layer);
-        if (bounds) {
-          if (bounds.getNorthEast && bounds.getSouthWest && bounds.getNorthEast().equals(bounds.getSouthWest())) {
-            map.setView(bounds.getCenter(), Math.max(map.getZoom(), 11), { animate: true });
-          } else {
-            map.fitBounds(bounds, {
-              padding: [36, 36],
-              maxZoom: 11,
-              animate: true,
-              duration: 0.6
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Não foi possível centralizar o município pesquisado no mapa principal:', err);
-      }
-
       recolherLegenda();
     }
 
@@ -13458,7 +13539,7 @@ function hoverMinerLeave(e) {
         <div class="download-box">
           <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
           <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar parecer PDF</button>
+          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
         </div>
       `,
       'estado'
