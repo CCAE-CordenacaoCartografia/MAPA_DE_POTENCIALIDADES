@@ -24,6 +24,8 @@
 
 
 
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3276,6 +3278,87 @@
       text-decoration: line-through;
     }
 
+    /* ===== Painel inicial: visão geral do Estado do Piauí ===== */
+    .estado-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .estado-card {
+      border: 1px solid #e3eaf2;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 14px;
+      padding: 11px 12px;
+      box-shadow: 0 1px 5px rgba(15, 23, 42, .06);
+    }
+
+    .estado-card strong {
+      display: block;
+      color: #0b6b2a;
+      font-size: 16px;
+      line-height: 1.15;
+      margin-bottom: 3px;
+    }
+
+    .estado-card span {
+      display: block;
+      color: #64748b;
+      font-size: 11.5px;
+      line-height: 1.25;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .18px;
+    }
+
+    .estado-history-box {
+      border-left: 4px solid #c98910;
+      background: #fffaf0;
+      border-radius: 14px;
+      padding: 12px 13px;
+    }
+
+    .estado-history-box p {
+      margin: 0 0 9px 0;
+      text-align: justify;
+      line-height: 1.55;
+    }
+
+    .estado-history-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .estado-meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .estado-meta-tags .pill {
+      background: #eef7ef;
+      border: 1px solid #d6ead8;
+      color: #0b6b2a;
+      font-weight: 700;
+    }
+
+    #downloadPiauiKml {
+      background: linear-gradient(90deg, #0b3f63, #1f77b4);
+      color: #fff;
+      border-color: #0b3f63;
+    }
+
+    #downloadPiauiKml:hover {
+      filter: brightness(0.96);
+    }
+
+    @media (max-width: 760px) {
+      .estado-overview-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
 </style>
 </head>
 <body>
@@ -3424,7 +3507,6 @@
         <div class="download-box">
           <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
           <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
         </div>
       </div>
     </aside>
@@ -4499,6 +4581,241 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         currentSelectedFeature.properties?.__atlas_nome_bioma ||
         currentSelectedType ||
         'selecao'
+      );
+    }
+
+
+
+    function calcularIndicadoresEstadoPiauiAtlas() {
+      const resultado = {
+        municipios: 0,
+        pop2022: 0,
+        pib2023: 0,
+        pibPerCapita2023: 0
+      };
+
+      try {
+        if (typeof municipiosLayer !== 'undefined' && municipiosLayer && municipiosLayer.eachLayer) {
+          municipiosLayer.eachLayer(layer => {
+            const props = layer?.feature?.properties || {};
+            if (!props) return;
+
+            try { normalizarIndicadoresMunicipioPIB2023Atlas(props); } catch (_) {}
+
+            const pop = obterPopulacaoMunicipio2022Atlas(props);
+            const pib = obterPib2023MunicipioAtlas(props);
+
+            resultado.municipios += 1;
+            if (Number.isFinite(pop)) resultado.pop2022 += pop;
+            if (Number.isFinite(pib)) resultado.pib2023 += pib;
+          });
+        }
+      } catch (err) {
+        console.warn('Não foi possível calcular os indicadores estaduais pela camada municipal:', err);
+      }
+
+      if (resultado.pop2022 > 0 && resultado.pib2023 > 0) {
+        resultado.pibPerCapita2023 = resultado.pib2023 / resultado.pop2022;
+      }
+
+      return resultado;
+    }
+
+    function renderizarIndicadoresEstadoPiauiAtlas() {
+      return `
+        <div class="estado-overview-grid">
+          <div class="estado-card">
+            <strong>3.271.199</strong>
+            <span>População Censo 2022</span>
+          </div>
+          <div class="estado-card">
+            <strong>3.384.547</strong>
+            <span>População estimada 2025</span>
+          </div>
+          <div class="estado-card">
+            <strong>12,99 hab./km²</strong>
+            <span>Densidade demográfica 2022</span>
+          </div>
+          <div class="estado-card">
+            <strong>251.755,499 km²</strong>
+            <span>Área territorial 2025</span>
+          </div>
+          <div class="estado-card">
+            <strong>224</strong>
+            <span>Municípios</span>
+          </div>
+          <div class="estado-card">
+            <strong>Teresina</strong>
+            <span>Capital</span>
+          </div>
+          <div class="estado-card">
+            <strong>R$ 80,9 bilhões</strong>
+            <span>PIB total 2023</span>
+          </div>
+          <div class="estado-card">
+            <strong>R$ 24.736,15</strong>
+            <span>PIB per capita 2023</span>
+          </div>
+        </div>`;
+    }
+
+    function renderizarResumoVerdeEstadoPiauiAtlas() {
+      return `
+        <span>👥 População atual: 3.384.547 hab.</span>
+        <span>💰 PIB total 2023: R$ 80,9 bilhões</span>
+        <span>📍 224 municípios</span>`;
+    }
+
+    function getPiauiGeoJsonCompletoAtlas() {
+      if (typeof piauiLayer === 'undefined' || !piauiLayer || typeof piauiLayer.toGeoJSON !== 'function') {
+        return null;
+      }
+
+      const geo = piauiLayer.toGeoJSON();
+      const fc = geo?.type === 'FeatureCollection'
+        ? JSON.parse(JSON.stringify(geo))
+        : { type: 'FeatureCollection', features: [JSON.parse(JSON.stringify(geo))] };
+
+      fc.features = (fc.features || [])
+        .filter(f => f && f.geometry)
+        .map((f, idx) => ({
+          ...f,
+          properties: {
+            ...(f.properties || {}),
+            name: idx === 0 ? 'Perímetro completo do Estado do Piauí' : `Perímetro do Piauí - parte ${idx + 1}`,
+            Estado: 'Piauí',
+            UF: 'PI',
+            Fonte: 'Atlas de Potencialidades Territoriais'
+          }
+        }));
+
+      return fc.features.length ? fc : null;
+    }
+
+    function downloadPiauiCompletoAsKML() {
+      const fc = getPiauiGeoJsonCompletoAtlas();
+
+      if (!fc) {
+        alert('O limite do Estado do Piauí ainda não foi carregado. Aguarde alguns segundos e tente novamente.');
+        return;
+      }
+
+      if (typeof tokml !== 'function') {
+        alert('A biblioteca tokml não foi carregada. Verifique se o script do tokml está presente no HTML.');
+        return;
+      }
+
+      let kml = tokml(fc, {
+        documentName: 'Perímetro completo do Estado do Piauí',
+        name: 'name'
+      });
+
+      const estiloKML = `
+        <Style id="piauiPerimetroStyle">
+          <LineStyle><color>ff00ffff</color><width>3</width></LineStyle>
+          <PolyStyle><color>00ffffff</color><fill>0</fill><outline>1</outline></PolyStyle>
+        </Style>`;
+
+      kml = kml
+        .replace('</Document>', `${estiloKML}</Document>`)
+        .replace(/<Placemark>/g, '<Placemark><styleUrl>#piauiPerimetroStyle</styleUrl>');
+
+      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'perimetro_completo_estado_do_piaui.kml';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function downloadPiauiGeoJsonArquivoAtlas() {
+      try {
+        const resp = await fetch('piaui.geojson', { cache: 'no-store' });
+        if (resp.ok) {
+          const texto = await resp.text();
+          const blob = new Blob([texto], { type: 'application/geo+json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'piaui.geojson';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          return;
+        }
+      } catch (err) {
+        console.warn('Não foi possível baixar diretamente o arquivo piaui.geojson. Será usada a camada carregada no mapa.', err);
+      }
+
+      const fc = getPiauiGeoJsonCompletoAtlas();
+      if (!fc) {
+        alert('O limite do Estado do Piauí ainda não foi carregado. Aguarde alguns segundos e tente novamente.');
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'piaui.geojson';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderPainelInicialEstadoPiauiAtlas() {
+      renderInfoPanel(
+        'Estado do Piauí',
+        renderizarResumoVerdeEstadoPiauiAtlas(),
+        `
+          <div class="section">
+            <h3>Indicadores estaduais</h3>
+            ${renderizarIndicadoresEstadoPiauiAtlas()}
+            <div class="estado-meta-tags">
+              <span class="pill">Governador: Rafael Tajra Fonteles</span>
+              <span class="pill">Capital: Teresina</span>
+              <span class="pill">Gentílico: piauiense</span>
+              <span class="pill">Região: Nordeste</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>História</h3>
+            <div class="estado-history-box muted">
+              <p>O estado foi colonizado do centro em direção ao litoral. À procura de novas expansões para suas criações de gado, fazendeiros do São Francisco passaram a ocupar, a partir de 1674, terras situadas às margens do rio Gurguéia, com sesmarias concedidas pelo governo de Pernambuco.</p>
+              <p>O capitão Domingos Afonso Mafrense, conhecido como Domingos Sertão, fundou 30 fazendas de gado, tornando-se um dos principais colonizadores da região. Após sua morte, as fazendas ficaram a cargo dos padres jesuítas da Companhia de Jesus.</p>
+              <p>Os jesuítas contribuíram para o desenvolvimento da pecuária piauiense, que atingiu seu auge em meados do século XVIII. Os rebanhos abasteciam o Nordeste e províncias do Sul. Com a expulsão dos jesuítas, as fazendas foram incorporadas à Coroa e entraram em declínio.</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Localização e limites</h3>
+            <p class="muted" style="text-align:justify;">
+              O Piauí está localizado na Região Nordeste do Brasil e faz limite com Ceará, Pernambuco, Bahia, Tocantins e Maranhão.
+              O estado possui 224 municípios e área territorial oficial de 251.755,499 km².
+            </p>
+          </div>
+
+          <div class="section">
+            <h3>Orientação de uso</h3>
+            <ul class="bullets">
+              <li>Use o painel esquerdo para ativar territórios, potencialidades e camadas temáticas.</li>
+              <li>Pesquise municípios, territórios, rios, rodovias e demais feições pela barra superior.</li>
+              <li>Clique em um município, território ou camada para substituir este resumo pelas informações da feição selecionada.</li>
+            </ul>
+          </div>
+
+          <div class="download-box">
+            <button id="downloadPiauiKml">🗺️ Baixar perímetro do Piauí em KML</button>
+            <button id="downloadMunicipioPdf" data-relatorio-completo="piaui">📄 Baixar relatório PDF completo</button>
+          </div>
+        `,
+        'estado'
       );
     }
 
@@ -6884,10 +7201,15 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         btn.onclick = downloadCurrentSelectionAsKML;
       });
       document.querySelectorAll('[id="downloadCurrentGeoJson"]').forEach(btn => {
-        btn.onclick = downloadCurrentSelectionAsGeoJSON;
+        btn.onclick = btn.dataset.piauiGeojson === 'true'
+          ? downloadPiauiGeoJsonArquivoAtlas
+          : downloadCurrentSelectionAsGeoJSON;
       });
       document.querySelectorAll('[id="downloadMunicipioPdf"]').forEach(btn => {
         btn.onclick = gerarRelatórioPdfAtual;
+      });
+      document.querySelectorAll('[id="downloadPiauiKml"]').forEach(btn => {
+        btn.onclick = downloadPiauiCompletoAsKML;
       });
     }
 
@@ -9368,6 +9690,9 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         tentarInjetarPotencialidadesEnergiaRenovavelAtlas();
       }
       redesenharSimbolosPotencialidadesSePronto();
+      if (!currentSelectedFeature && currentSelectedType === 'estado') {
+        renderPainelInicialEstadoPiauiAtlas();
+      }
     });
 
     {
@@ -16483,34 +16808,7 @@ function hoverMinerLeave(e) {
       try { map.fitBounds(group.getBounds(), { padding: [20, 20] }); } catch(_) {}
     }, 1200);
 
-    renderInfoPanel(
-      'Estado do Piauí',
-      '<span>🏛 Visão geral estadual</span>',
-      `
-        <div class="section">
-          <h3>Resumo</h3>
-          <p class="muted">
-            Clique em um território, município ou potencialidade para ver as informações aqui.
-          </p>
-        </div>
-
-        <div class="section">
-          <h3>Orientação</h3>
-          <ul class="bullets">
-            <li>No painel esquerdo, clique em uma ou mais potencialidades.</li>
-            <li>Os municípios que possuem as potencialidades ativas ficarão destacados no mapa temático.</li>
-            <li>Os símbolos das potencialidades aparecem diretamente sobre cada município.</li>
-          </ul>
-        </div>
-
-        <div class="download-box">
-          <button id="downloadCurrentKml">🗺️ Baixar KML da seleção</button>
-          <button id="downloadCurrentGeoJson">🧩 Baixar GeoJSON da seleção</button>
-          <button id="downloadMunicipioPdf">📄 Baixar relatório PDF</button>
-        </div>
-      `,
-      'estado'
-    );
+    renderPainelInicialEstadoPiauiAtlas();
   </script>
 
 <script>
@@ -16637,6 +16935,44 @@ function hoverMinerLeave(e) {
   })();
 </script>
 
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 <!-- Code injected by live-server -->
 <script>
 	// <![CDATA[  <-- For SVG support
