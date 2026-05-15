@@ -22,6 +22,8 @@
 
 
 
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3180,7 +3182,7 @@
             <div class="chip" data-view="energiasRenovaveis">Energias renováveis</div>
             <div class="chip" data-view="litigio">Litígio</div>
             <div class="chip" data-view="imperial">Linha Imperial</div>
-            <div class="chip" data-view="rios">Rios</div>
+            <div class="chip" data-view="rios">Curso d'água (Rios, riachos)</div>
             <div class="chip" data-view="massasAgua">Massas d'água</div>
             <div class="chip" data-view="ferrovias">Ferrovias</div>
             <div class="chip" data-view="rodoviasFederais">Rodovias Federais</div>
@@ -4277,6 +4279,9 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         currentSelectedFeature,
         currentSelectedFeature.properties?.NM_MUN ||
         currentSelectedFeature.properties?.NM_TD ||
+        currentSelectedFeature.properties?.Bioma ||
+        currentSelectedFeature.properties?.BIOMA ||
+        currentSelectedFeature.properties?.__atlas_nome_bioma ||
         currentSelectedType ||
         'selecao'
       );
@@ -5175,12 +5180,12 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       pushLayer('Energias renováveis', (typeof energiasRenovaveisLayer !== 'undefined' ? energiasRenovaveisLayer : null), '#0ea5e9', { limite: 1800 });
       pushLayer('Litígio', (typeof litigioLayer !== 'undefined' ? litigioLayer : null), '#dc2626');
       pushLayer('Linha Imperial', (typeof linhaImperialLayer !== 'undefined' ? linhaImperialLayer : null), '#2563eb');
-      pushLayer('Rios', (typeof riosLayer !== 'undefined' ? riosLayer : null), '#0ea5e9');
+      pushLayer("Curso d'água (Rios, riachos)", (typeof riosLayer !== 'undefined' ? riosLayer : null), '#0ea5e9');
       pushLayer("Massas d'água", (typeof massasAguaLayer !== 'undefined' ? massasAguaLayer : null), '#0284c7');
-      pushLayer('Ferrovias', (typeof ferroviasLayer !== 'undefined' ? ferroviasLayer : null), '#111827');
+      pushLayer('Ferrovias', (typeof ferroviasLayer !== 'undefined' ? ferroviasLayer : null), '#3b2f2a');
       pushLayer('Rodovias Federais', (typeof rodoviasFederaisLayer !== 'undefined' ? rodoviasFederaisLayer : null), '#f97316');
-      pushLayer('Rodovias Estaduais', (typeof rodoviasEstaduaisLayer !== 'undefined' ? rodoviasEstaduaisLayer : null), '#f97316');
-      pushLayer('Rodovias Federais ou Estaduais', (typeof rodoviasMixLayer !== 'undefined' ? rodoviasMixLayer : null), '#f97316');
+      pushLayer('Rodovias Estaduais', (typeof rodoviasEstaduaisLayer !== 'undefined' ? rodoviasEstaduaisLayer : null), '#f59e0b');
+      pushLayer('Rodovias Federais ou Estaduais', (typeof rodoviasMixLayer !== 'undefined' ? rodoviasMixLayer : null), '#7c3aed');
       pushLayer('UCs Federais', (typeof ucFederalLayer !== 'undefined' ? ucFederalLayer : null), '#16a34a');
       pushLayer('UCs Estaduais', (typeof ucEstadualLayer !== 'undefined' ? ucEstadualLayer : null), '#22c55e');
       pushLayer('Aeródromos Públicos', (typeof aerodromosPublicosLayer !== 'undefined' ? aerodromosPublicosLayer : null), '#7c3aed');
@@ -10615,6 +10620,8 @@ layer.bindPopup(html);
     })
 
 /* ==== FERROVIAS: estilo, hover, tooltip e KML ==== */
+const ferroviasDecorLayer = L.layerGroup();
+
 function getFerroNome(props = {}, fallback = 'Ferrovia') {
   // tenta alguns nomes comuns
   const keys = ['nome','Nome','NOME','linha','Linha','railway','RAILWAY','operador','operador_nome'];
@@ -10626,16 +10633,29 @@ function getFerroNome(props = {}, fallback = 'Ferrovia') {
 function styleFerrovia(feature) {
   return {
     pane: 'pane-ferrovias',
-    color: '#3a3a3a',     // trilho metálico escuro
-    weight: 6,            // espessura base
-    opacity: 1,
+    color: '#2b211d',
+    weight: 2.9,
+    opacity: 0.98,
     lineCap: 'round',
     lineJoin: 'round'
   };
 }
 
+function styleFerroviaDormentes() {
+  return {
+    pane: 'pane-ferrovias',
+    color: '#ffffff',
+    weight: 1.25,
+    opacity: 0.88,
+    dashArray: '2.6,7',
+    lineCap: 'butt',
+    lineJoin: 'round',
+    interactive: false
+  };
+}
+
 function hoverFerroEnter(e){
-  aplicarHoverLinhaAtlas(e, { color:'#ff7a00', weight:6.6 });
+  aplicarHoverLinhaAtlas(e, { color: '#ff7a00', weight: 6.2 });
 }
 function hoverFerroLeave(e){
   resetHoverLinhaAtlas(e);
@@ -10664,10 +10684,10 @@ function bindFerroPopup(feature, layer){
         .replace(/[^\w\s-]/g,'').replace(/\s+/g,'_');
 
       let kml = tokml({ type:'FeatureCollection', features:[feature] });
-      // estilo KML (linha escura com casing leve)
+      // estilo KML compatível com o traçado discreto usado no mapa.
       const estiloKML = `
         <Style id="ferroStyle">
-          <LineStyle><color>ff212121</color><width>4</width></LineStyle>
+          <LineStyle><color>ff1d212b</color><width>3</width></LineStyle>
         </Style>`;
       kml = kml.replace('</Document>', `${estiloKML}</Document>`)
                .replace(/<Placemark>/g, '<Placemark><styleUrl>#ferroStyle</styleUrl>');
@@ -10696,18 +10716,15 @@ const ferroviasLayer = new L.GeoJSON.AJAX("ferrovias.geojson", {
     // popup + hover
     bindFerroPopup(feature, layer);
     layer.on({ mouseover: hoverFerroEnter, mouseout: hoverFerroLeave });
-    // Adiciona o “trilho duplo” por cima
-try {
-  const coords = feature.geometry.coordinates;
-  const line = L.polyline(L.GeoJSON.coordsToLatLngs(coords, 0), {
-    pane: 'pane-ferrovias',
-    color: '#d9d9d9',     // tom metálico claro
-    weight: 2.5,
-    opacity: 1,
-    dashArray: '8,8'      // dormentes (espaçamento)
-  });
-  line.addTo(map);
-} catch (e) { console.warn('Erro ao desenhar trilho duplo', e); }
+    // Adiciona dormentes discretos sobre a linha principal, no mesmo grupo de controle.
+    try {
+      const decor = L.geoJSON(feature, {
+        pane: 'pane-ferrovias',
+        style: () => styleFerroviaDormentes(),
+        interactive: false
+      });
+      ferroviasDecorLayer.addLayer(decor);
+    } catch (e) { console.warn('Erro ao desenhar simbologia discreta de ferrovia', e); }
 
     // tooltip com nome
     try {
@@ -10716,6 +10733,18 @@ try {
     } catch(_){}
   }
 });
+
+ferroviasLayer.on('add', () => {
+  try {
+    if (!map.hasLayer(ferroviasDecorLayer)) ferroviasDecorLayer.addTo(map);
+  } catch (_) {}
+});
+ferroviasLayer.on('remove', () => {
+  try {
+    if (map.hasLayer(ferroviasDecorLayer)) map.removeLayer(ferroviasDecorLayer);
+  } catch (_) {}
+});
+
 /* ==== AERÓDROMOS: helpers (ícone, tooltip, popup) ==== */
 
 /* SVG de avião (vista superior). Troque a cor via parâmetro. */
@@ -11191,13 +11220,14 @@ function getRodoviaSigla(props = {}) {
 }
 
 /* Estilo */
-function styleRodoFed() { return { pane:'pane-rodo-fed', color:'#c62828', weight:4, opacity:1, lineCap:'round' }; }   // vermelho
-function styleRodoEst() { return { pane:'pane-rodo-est', color:'#1565c0', weight:3.5, opacity:1, lineCap:'round' }; } // azul
-function styleRodoMix() { return { pane:'pane-rodo-mix', color:'#6a1b9a', weight:4, opacity:1, lineCap:'round' }; }   // roxo
+function styleRodoFed() { return { pane:'pane-rodo-fed', color:'#d9482e', weight:2.15, opacity:.78, lineCap:'round', lineJoin:'round' }; }   // vermelho suave
+function styleRodoEst() { return { pane:'pane-rodo-est', color:'#f59e0b', weight:2.05, opacity:.74, lineCap:'round', lineJoin:'round' }; } // laranja/dourado: evita confundir com rios
+function styleRodoMixHalo() { return { pane:'pane-rodo-mix', color:'#f8fafc', weight:4.9, opacity:.92, lineCap:'round', lineJoin:'round' }; } // halo claro para aumentar a nitidez
+function styleRodoMix() { return { pane:'pane-rodo-mix', color:'#6b21d9', weight:2.45, opacity:.97, lineCap:'round', lineJoin:'round' }; }   // rodovias federais/estaduais nítidas com traço principal
 
 /* Hover */
 function hoverRodoEnter(e){
-  aplicarHoverLinhaAtlas(e, { color:'#ff7a00', weight:6.4 });
+  aplicarHoverLinhaAtlas(e, { color: '#ff7a00', weight: 6.2 });
 }
 function hoverRodoLeave(e){
   resetHoverLinhaAtlas(e);
@@ -11217,7 +11247,7 @@ function bindRodoPopup(feature, layer, titulo){
       Baixar KML
     </button>`;
   layer.bindPopup(html);
-  layer.bindTooltip(`${titulo} • ${sigla}`, { direction:'top', opacity:1, offset:[0,-10], sticky:true, className:'tt-linha-atlas' });
+  layer.bindTooltip(`${titulo} • ${sigla}`, { direction:'top', opacity:0.9, offset:[0,-10] });
   layer.on('popupopen', e=>{
     const el = e.popup.getElement();
     const btn = el.querySelector('.rodo-kml-btn');
@@ -11225,6 +11255,13 @@ function bindRodoPopup(feature, layer, titulo){
     btn.addEventListener('click', ()=>{
       const nomeArq = (sigla||titulo).replace(/[^\w\s-]/g,'').replace(/\s+/g,'_');
       let kml = tokml({ type:'FeatureCollection', features:[feature] });
+      const corKml = titulo.includes('Estadual') ? 'ff0b9ef5' : (titulo.includes('Federal ou Estadual') ? 'ffd9216b' : 'ff2e48d9');
+      const estiloKML = `
+        <Style id="rodoStyle">
+          <LineStyle><color>${corKml}</color><width>3</width></LineStyle>
+        </Style>`;
+      kml = kml.replace('</Document>', `${estiloKML}</Document>`)
+               .replace(/<Placemark>/g, '<Placemark><styleUrl>#rodoStyle</styleUrl>');
       const blob = new Blob([kml], { type:'application/vnd.google-earth.kml+xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `${nomeArq}.kml`;
@@ -11263,7 +11300,13 @@ try {
 
 /* ======= RODOVIAS FEDERAIS OU ESTADUAIS ======= */
 try {
-  var rodoviasMixLayer = new L.GeoJSON.AJAX('rodoviasfederaisestaduais.geojson', {
+  var rodoviasMixHaloLayer = new L.GeoJSON.AJAX('rodoviasfederaisestaduais.geojson', {
+    pane:'pane-rodo-mix',
+    interactive: false,
+    style:(f)=> styleRodoMixHalo(f)
+  });
+
+  var rodoviasMixMainLayer = new L.GeoJSON.AJAX('rodoviasfederaisestaduais.geojson', {
     pane:'pane-rodo-mix',
     style:(f)=>{ const st=styleRodoMix(f); return st; },
     onEachFeature:(feature, layer)=>{
@@ -11272,13 +11315,15 @@ try {
       layer.on({mouseover:hoverRodoEnter, mouseout:hoverRodoLeave});
     }
   });
+
+  var rodoviasMixLayer = L.layerGroup([rodoviasMixHaloLayer, rodoviasMixMainLayer]);
   layersControl.addOverlay(rodoviasMixLayer, "Rodovias Federais ou Estaduais");
 } catch(e) { console.warn("rodoviasfederaisestaduais.geojson não encontrado"); }
 
 
 
     // Adiciona Hidrografia ao controle
-    layersControl.addOverlay(riosLayer, "Rios");
+    layersControl.addOverlay(riosLayer, "Curso d'água (Rios, riachos)");
     layersControl.addOverlay(massasAguaLayer, "Massas d'água");
     layersControl.addOverlay(ferroviasLayer, "Ferrovias");
     
@@ -12919,7 +12964,7 @@ function hoverMinerLeave(e) {
         { nome: 'Potencialidades — pontos/símbolos', layer: potencialidadesLayer },
         { nome: 'Litígio', layer: litigioLayer },
         { nome: 'Linha Imperial', layer: linhaImperialLayer },
-        { nome: 'Rios', layer: riosLayer },
+        { nome: "Curso d'água (Rios, riachos)", layer: riosLayer },
         { nome: "Massas d'água", layer: massasAguaLayer },
         { nome: 'Ferrovias', layer: ferroviasLayer },
         { nome: 'Rodovias Federais', layer: (typeof rodoviasFederaisLayer !== 'undefined' ? rodoviasFederaisLayer : null) },
@@ -13023,6 +13068,8 @@ function hoverMinerLeave(e) {
       if (n.includes('rio')) return '#0ea5e9';
       if (n.includes('massa')) return '#38bdf8';
       if (n.includes('ferrovia')) return '#111827';
+      if (n.includes('rodovia') && n.includes('estadual') && n.includes('federal')) return '#7c3aed';
+      if (n.includes('rodovia') && n.includes('estadual')) return '#f59e0b';
       if (n.includes('rodovia')) return '#f97316';
       if (n.includes('uc')) return '#16a34a';
       if (n.includes('aerodromo')) return '#7c3aed';
@@ -13154,8 +13201,10 @@ function hoverMinerLeave(e) {
       if (n.includes('territorio')) return { color: cor, weight: 2.25, opacity: 1, fillColor: cor, fillOpacity: .23 };
       if (n.includes('rio')) return { color: '#0ea5e9', weight: 2.2, opacity: .95 };
       if (n.includes('massa')) return { color: '#0284c7', weight: 1.6, opacity: .9, fillColor: '#38bdf8', fillOpacity: .35 };
-      if (n.includes('ferrovia')) return { color: '#111827', weight: 2.4, opacity: .95, dashArray: '6,4' };
-      if (n.includes('rodovia')) return { color: '#f97316', weight: 2.8, opacity: .95 };
+      if (n.includes('ferrovia')) return { color: '#1f1714', weight: 2.9, opacity: .98, dashArray: '5,3' };
+      if (n.includes('rodovia') && n.includes('estadual') && n.includes('federal')) return { color: '#6b21d9', weight: 1.2, opacity: .82, lineCap: 'round', lineJoin: 'round' };
+      if (n.includes('rodovia') && n.includes('estadual')) return { color: '#f59e0b', weight: 1.15, opacity: .82, lineCap: 'round', lineJoin: 'round' };
+      if (n.includes('rodovia')) return { color: '#d9482e', weight: 1.1, opacity: .78, lineCap: 'round', lineJoin: 'round' };
       if (n.includes('imperial')) return { color: '#2563eb', weight: 2.5, opacity: .95, dashArray: '5,5' };
       if (n.includes('litigio')) return { color: '#dc2626', weight: 2.6, opacity: 1, fillColor: '#dc2626', fillOpacity: .20 };
       if (n.includes('energia')) return { color: '#0ea5e9', weight: 1.6, opacity: .96, fillColor: '#38bdf8', fillOpacity: .18 };
@@ -13338,8 +13387,10 @@ function hoverMinerLeave(e) {
       if (n.includes('litigio')) return { stroke: '#dc2626', fill: 'rgba(220,38,38,0.12)', lineWidth: 2.0, dash: [6, 4] };
       if (n.includes('massa')) return { stroke: '#0284c7', fill: 'rgba(56,189,248,0.30)', lineWidth: 1.5, dash: [] };
       if (n.includes('rio')) return { stroke: '#0ea5e9', fill: null, lineWidth: 1.9, dash: [] };
-      if (n.includes('rodovia')) return { stroke: '#f97316', fill: null, lineWidth: 2.2, dash: [] };
-      if (n.includes('ferrovia')) return { stroke: '#111827', fill: null, lineWidth: 1.8, dash: [7, 4] };
+      if (n.includes('rodovia') && n.includes('estadual') && n.includes('federal')) return { stroke: '#6b21d9', fill: null, lineWidth: 0.95, dash: [] };
+      if (n.includes('rodovia') && n.includes('estadual')) return { stroke: '#f59e0b', fill: null, lineWidth: 0.9, dash: [] };
+      if (n.includes('rodovia')) return { stroke: '#d9482e', fill: null, lineWidth: 0.85, dash: [] };
+      if (n.includes('ferrovia')) return { stroke: '#2b211d', fill: null, lineWidth: 1.45, dash: [3, 3] };
       if (n.includes('imperial')) return { stroke: '#2563eb', fill: null, lineWidth: 1.8, dash: [5, 5] };
       if (n.includes('potencial')) return { stroke: '#d88a10', fill: '#f0b02f', lineWidth: 1.2, dash: [], pointShape: 'diamond', pointSize: 6.5 };
       if (n.includes('energia')) return { stroke: '#0ea5e9', fill: '#38bdf8', lineWidth: 1.4, dash: [], pointShape: 'diamond', pointSize: 7.2 };
@@ -14873,7 +14924,10 @@ function hoverMinerLeave(e) {
                     renderInfoPanel(
                       `Bioma: ${textoBioma.titulo}`,
                       `<span>🌿 Bioma</span>`,
-                      `<div class="section"><h3>${escapeHtmlPotencialidade(textoBioma.titulo)}</h3><p class="muted" style="margin:0; text-align:justify; line-height:1.55;">${escapeHtmlPotencialidade(textoBioma.texto)}</p></div>`,
+                      `<div class="section"><h3>${escapeHtmlPotencialidade(textoBioma.titulo)}</h3><p class="muted" style="margin:0; text-align:justify; line-height:1.55;">${escapeHtmlPotencialidade(textoBioma.texto)}</p></div>
+                      <div class="download-box">
+                        <button id="downloadCurrentKml">🗺️ Baixar KML do bioma</button>
+                      </div>`,
                       'geral'
                     );
                   }
@@ -15304,7 +15358,7 @@ function hoverMinerLeave(e) {
             kind: 'rio_geojson',
             nome,
             tipo: tipoLabel,
-            detalhe: codigo ? `Camada Rios | Código: ${codigo}` : 'Camada Rios',
+            detalhe: codigo ? `Camada Curso d'água (Rios, riachos) | Código: ${codigo}` : "Camada Curso d'água (Rios, riachos)",
             feature,
             featureIndex: idx,
             parentLayer: typeof riosLayer !== 'undefined' ? riosLayer : null,
