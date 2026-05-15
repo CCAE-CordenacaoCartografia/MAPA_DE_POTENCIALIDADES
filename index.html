@@ -27,6 +27,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2501,6 +2502,32 @@
         cursor: pointer;
       }
 
+
+      /* Mobile: chama atenção para o botão Info sem abrir o painel sozinho. */
+      body.atlas-mobile-info-attention:not(.mobile-panel-info) .atlas-mobile-nav [data-mobile-panel="info"],
+      .atlas-mobile-nav [data-mobile-panel="info"].atlas-mobile-info-attention {
+        animation: atlasInfoMobilePulse 1.05s ease-in-out infinite;
+        background: linear-gradient(90deg, #ff6600, #d88a10) !important;
+        color: #fff !important;
+        border-color: #ff6600 !important;
+        box-shadow: 0 0 0 0 rgba(255, 102, 0, .48), 0 6px 18px rgba(255, 102, 0, .28) !important;
+      }
+
+      @keyframes atlasInfoMobilePulse {
+        0% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 0 0 rgba(255, 102, 0, .48), 0 6px 18px rgba(255, 102, 0, .28);
+        }
+        50% {
+          transform: translateY(-1px) scale(1.045);
+          box-shadow: 0 0 0 8px rgba(255, 102, 0, .10), 0 8px 22px rgba(255, 102, 0, .36);
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 0 0 rgba(255, 102, 0, 0), 0 6px 18px rgba(255, 102, 0, .28);
+        }
+      }
+
       body.mobile-panel-filters .atlas-mobile-nav [data-mobile-panel="filters"],
       body.mobile-panel-info .atlas-mobile-nav [data-mobile-panel="info"] {
         background: #0b6b2a;
@@ -3405,7 +3432,102 @@
       }
     }
 
-  </style>
+  
+    /* ===== Ajustes de fluidez e mobile solicitados ===== */
+    .globo-mapa-intro,
+    #globoTerraMapa,
+    #map.globo-map-preparando,
+    #map.globo-map-revelado {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform: translateZ(0);
+      will-change: opacity, transform;
+    }
+
+    .leaflet-zoom-animated,
+    .leaflet-marker-icon,
+    .leaflet-pane {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    @media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+      /* A seta Norte fica abaixo do seletor de mapa-base, sem cobrir zoom (+/-). */
+      .leaflet-top.leaflet-right {
+        top: 58px !important;
+        right: 8px !important;
+      }
+
+      .north-arrow {
+        width: 30px !important;
+        height: 30px !important;
+        opacity: .82 !important;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+      }
+
+      /* Seletor de imagem de satélite/base menor no celular. */
+      .basemap-switcher {
+        top: 8px !important;
+        right: 8px !important;
+        width: 48px !important;
+        z-index: 3200 !important;
+      }
+
+      .basemap-trigger {
+        width: 46px !important;
+        height: 42px !important;
+        border-width: 2px !important;
+        border-radius: 10px !important;
+      }
+
+      .basemap-trigger::after {
+        height: 21px !important;
+      }
+
+      .basemap-trigger-meta {
+        left: 2px !important;
+        right: 2px !important;
+        bottom: 3px !important;
+        font-size: 7.5px !important;
+        gap: 2px !important;
+      }
+
+      .basemap-panel {
+        width: 82px !important;
+        max-height: min(60vh, 390px) !important;
+        padding: 7px 6px !important;
+        gap: 7px !important;
+        border-radius: 12px !important;
+      }
+
+      .basemap-card,
+      .basemap-more-btn {
+        width: 66px !important;
+        min-height: 58px !important;
+      }
+
+      .basemap-card-thumb,
+      .basemap-more-box {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 10px !important;
+        margin-bottom: 4px !important;
+      }
+
+      .basemap-label {
+        max-width: 66px !important;
+        font-size: 8.5px !important;
+        line-height: 1.02 !important;
+      }
+
+      .leaflet-control-zoom a {
+        width: 30px !important;
+        height: 30px !important;
+        line-height: 30px !important;
+      }
+    }
+
+</style>
 </head>
 <body>
   <div class="app">
@@ -3620,15 +3742,44 @@
 
     /* ===== Abertura interna com globo 3D até o limite do piaui.geojson ===== */
     const GLOBO_PIAUI_INTRO_ATLAS = {
-      // Ajustado para hospedagem: início mais leve, sem arrancada brusca,
-      // e aproximação final mais próxima do enquadramento mínimo do Piauí.
-      duracaoAproximacao: 5600,
-      duracaoFade: 1350,
-      atrasoInicial: 320,
-      altitudeInicial: 2.35,
+      // Animação otimizada para ficar mais lisa no celular e no PC,
+      // mantendo o Piauí enquadrado no zoom mínimo calculado pelo piaui.geojson.
+      duracaoAproximacao: 5000,
+      duracaoFade: 900,
+      atrasoInicial: 140,
+      altitudeInicial: 2.25,
       altitudeFinalPadrao: 0.52,
-      rotacaoInicialGraus: 38
+      rotacaoInicialGraus: 34,
+      pixelRatioDesktop: 1.10,
+      pixelRatioMobile: 0.82
     };
+
+    function atlasGloboEhMobile() {
+      try {
+        return (window.matchMedia && window.matchMedia('(max-width: 760px), (max-height: 520px) and (pointer: coarse)').matches) || window.innerWidth <= 760;
+      } catch (_) {
+        return window.innerWidth <= 760;
+      }
+    }
+
+    function obterConfigGloboPiauiAtlas() {
+      const mobile = atlasGloboEhMobile();
+      return {
+        duracaoAproximacao: mobile ? 5200 : GLOBO_PIAUI_INTRO_ATLAS.duracaoAproximacao,
+        duracaoFade: mobile ? 760 : GLOBO_PIAUI_INTRO_ATLAS.duracaoFade,
+        atrasoInicial: mobile ? 90 : GLOBO_PIAUI_INTRO_ATLAS.atrasoInicial,
+        altitudeInicial: mobile ? 2.05 : GLOBO_PIAUI_INTRO_ATLAS.altitudeInicial,
+        altitudeFinalPadrao: GLOBO_PIAUI_INTRO_ATLAS.altitudeFinalPadrao,
+        rotacaoInicialGraus: mobile ? 28 : GLOBO_PIAUI_INTRO_ATLAS.rotacaoInicialGraus,
+        pixelRatioMax: mobile ? GLOBO_PIAUI_INTRO_ATLAS.pixelRatioMobile : GLOBO_PIAUI_INTRO_ATLAS.pixelRatioDesktop
+      };
+    }
+
+    function suavizarGloboAtlas(t) {
+      // Smootherstep: transição progressiva, sem arrancada ou freada brusca.
+      t = Math.max(0, Math.min(1, t));
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
 
     function obterCentroLatLngDoGeoJsonAtlas(geojson, fallbackBounds) {
       try {
@@ -3704,11 +3855,12 @@
       }
 
       if (intro) {
+        const fadeGloboMs = Number(window.__atlasGloboFadeMs || GLOBO_PIAUI_INTRO_ATLAS.duracaoFade);
         intro.classList.add('saindo');
         setTimeout(() => {
           try { intro.remove(); } catch (_) {}
           try { map.invalidateSize(false); } catch (_) {}
-        }, GLOBO_PIAUI_INTRO_ATLAS.duracaoFade + 120);
+        }, fadeGloboMs + 120);
       }
     }
 
@@ -3738,6 +3890,8 @@
 
       const centro = obterCentroLatLngDoGeoJsonAtlas(piauiData, bounds);
       const feicoesPiaui = prepararFeicoesPiauiParaGloboAtlas(piauiData);
+      const globoCfg = obterConfigGloboPiauiAtlas();
+      window.__atlasGloboFadeMs = globoCfg.duracaoFade;
       const altitudeFinalGlobo = calcularAltitudeFinalGloboPiauiAtlas(bounds, intro);
 
       let globo = null;
@@ -3774,7 +3928,7 @@
         try {
           const renderer = globo.renderer && globo.renderer();
           if (renderer && renderer.setPixelRatio) {
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, globoCfg.pixelRatioMax));
           }
         } catch (_) {}
 
@@ -3789,9 +3943,9 @@
         window.addEventListener('resize', redimensionarGlobo);
 
         const inicio = {
-          lat: centro.lat + 1.35,
-          lng: centro.lng - GLOBO_PIAUI_INTRO_ATLAS.rotacaoInicialGraus,
-          altitude: Math.max(GLOBO_PIAUI_INTRO_ATLAS.altitudeInicial, altitudeFinalGlobo + 1.55)
+          lat: centro.lat + (atlasGloboEhMobile() ? 0.9 : 1.2),
+          lng: centro.lng - globoCfg.rotacaoInicialGraus,
+          altitude: Math.max(globoCfg.altitudeInicial, altitudeFinalGlobo + (atlasGloboEhMobile() ? 1.18 : 1.45))
         };
 
         const fim = {
@@ -3802,19 +3956,14 @@
 
         globo.pointOfView(inicio, 0);
 
-        const easeInOutCubic = t => {
-          if (t < 0.5) return 4 * t * t * t;
-          return 1 - Math.pow(-2 * t + 2, 3) / 2;
-        };
-
         const mix = (a, b, t) => a + (b - a) * t;
-        const inicioAnimacao = performance.now() + GLOBO_PIAUI_INTRO_ATLAS.atrasoInicial;
+        const inicioAnimacao = performance.now() + globoCfg.atrasoInicial;
 
         function animar(now) {
           if (concluido) return;
 
-          const bruto = Math.max(0, Math.min(1, (now - inicioAnimacao) / GLOBO_PIAUI_INTRO_ATLAS.duracaoAproximacao));
-          const t = easeInOutCubic(bruto);
+          const bruto = Math.max(0, Math.min(1, (now - inicioAnimacao) / globoCfg.duracaoAproximacao));
+          const t = suavizarGloboAtlas(bruto);
 
           globo.pointOfView({
             lat: mix(inicio.lat, fim.lat, t),
@@ -3823,7 +3972,9 @@
           }, 0);
 
           if (bruto < 1) {
-            animFrame = requestAnimationFrame(animar);
+            animFrame = requestAnimationFrame(() => {
+          animFrame = requestAnimationFrame(animar);
+        });
           } else {
             window.removeEventListener('resize', redimensionarGlobo);
             setTimeout(limparEFinalizar, 160);
@@ -3835,7 +3986,7 @@
         // Segurança: se algum navegador/hospedagem travar textura ou animação, libera o mapa.
         setTimeout(() => {
           if (!concluido) limparEFinalizar();
-        }, GLOBO_PIAUI_INTRO_ATLAS.duracaoAproximacao + GLOBO_PIAUI_INTRO_ATLAS.duracaoFade + 2500);
+        }, globoCfg.duracaoAproximacao + globoCfg.duracaoFade + 2200);
       } catch (err) {
         console.warn('Falha ao iniciar o globo 3D do Piauí:', err);
         limparEFinalizar();
@@ -8204,6 +8355,48 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
     }
 
 
+    function atlasEstaEmLayoutMobile() {
+      try {
+        return (window.matchMedia && window.matchMedia('(max-width: 760px), (max-height: 520px) and (pointer: coarse)').matches) || window.innerWidth <= 760;
+      } catch (_) {
+        return window.innerWidth <= 760;
+      }
+    }
+
+    function atualizarBotoesMobileAtlas() {
+      document.querySelectorAll('.atlas-mobile-nav [data-mobile-panel]').forEach(btn => {
+        const target = btn.getAttribute('data-mobile-panel');
+        const active =
+          (target === 'filters' && document.body.classList.contains('mobile-panel-filters')) ||
+          (target === 'info' && document.body.classList.contains('mobile-panel-info'));
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      if (document.body.classList.contains('mobile-panel-info') && typeof limparAtencaoInfoMobileAtlas === 'function') {
+        limparAtencaoInfoMobileAtlas();
+      }
+    }
+
+    function chamarAtencaoInfoMobileAtlas() {
+      if (!atlasEstaEmLayoutMobile()) return;
+      if (document.body.classList.contains('mobile-panel-info')) return;
+      document.body.classList.add('atlas-mobile-info-attention');
+      const btnInfo = document.querySelector('.atlas-mobile-nav [data-mobile-panel="info"]');
+      if (btnInfo) btnInfo.classList.add('atlas-mobile-info-attention');
+    }
+
+    function limparAtencaoInfoMobileAtlas() {
+      document.body.classList.remove('atlas-mobile-info-attention');
+      document.querySelectorAll('.atlas-mobile-nav [data-mobile-panel="info"]').forEach(btn => {
+        btn.classList.remove('atlas-mobile-info-attention');
+      });
+    }
+
+    function abrirPainelInfoMobileAtlas() {
+      // No celular, não abre mais o painel automaticamente.
+      // Apenas destaca o botão/quadro "Info" em laranja para o usuário tocar quando quiser ver os detalhes.
+      chamarAtencaoInfoMobileAtlas();
+    }
+
     function fecharPainelMobileAposSelecaoTerritorio() {
       const emLayoutMobile = window.matchMedia
         ? window.matchMedia('(max-width: 760px), (max-height: 520px) and (pointer: coarse)').matches
@@ -8213,9 +8406,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
 
       document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
 
-      document.querySelectorAll('.atlas-mobile-nav [data-mobile-panel]').forEach(btn => {
-        btn.setAttribute('aria-pressed', 'false');
-      });
+      atualizarBotoesMobileAtlas();
 
       window.setTimeout(() => {
         try { if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize(false); } catch (_) {}
@@ -8282,7 +8473,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         const municipios = collectMunicipiosDoTerritorio(nt, ct, false);
 
         // Ao pesquisar/selecionar um território, já centraliza e enquadra no mapa principal.
-        map.fitBounds(territorioSelecionado.getBounds(), { padding: [45, 45], maxZoom: 10 });
+        map.fitBounds(territorioSelecionado.getBounds(), { padding: [45, 45], maxZoom: 10, animate: true, duration: atlasEstaEmLayoutMobile() ? 0.45 : 0.35 });
         currentSelectedFeature = feature;
         currentSelectedType = 'territorio';
         updateInfoPanelFromTerritorio(nt, ct, tdStats, municipios, cor);
@@ -8332,6 +8523,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         currentSelectedType = 'municipio';
         updateInfoPanelFromMunicipio(feature.properties);
         aplicarPotencialidadesDoMunicipio(feature.properties);
+        abrirPainelInfoMobileAtlas();
       });
     }
 
@@ -8355,6 +8547,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           currentSelectedType = 'territorio';
           updateInfoPanelFromTerritorio(territorioNome, territorioCodigo, tdStats, municipios, corTerritorio);
           aplicarPotencialidadesDoTerritorio(territorioNome, territorioCodigo);
+          abrirPainelInfoMobileAtlas();
         }
       });
     }
@@ -9867,6 +10060,7 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
           `Código: ${props.CD_MUN || '-'}`,
           ...linhas
         ]);
+        abrirPainelInfoMobileAtlas();
       });
 
     }
@@ -16034,9 +16228,9 @@ function hoverMinerLeave(e) {
       try {
         const bounds = item.layer.getBounds ? item.layer.getBounds() : null;
         if (bounds && bounds.isValid && bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 12 });
+          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 12, animate: true, duration: atlasEstaEmLayoutMobile() ? 0.45 : 0.35 });
         } else if (bounds && bounds.getCenter) {
-          map.setView(bounds.getCenter(), Math.max(map.getZoom(), 10));
+          map.setView(bounds.getCenter(), Math.max(map.getZoom(), 10), { animate: true });
         }
       } catch (_) {}
 
@@ -16044,6 +16238,7 @@ function hoverMinerLeave(e) {
       currentSelectedType = 'municipio';
       updateInfoPanelFromMunicipio(item.layer.feature.properties);
       aplicarPotencialidadesDoMunicipio(item.layer.feature.properties);
+      abrirPainelInfoMobileAtlas();
       recolherLegenda();
     }
 
@@ -16120,9 +16315,9 @@ function hoverMinerLeave(e) {
       const bounds = layerBoundsSafe(layer);
       if (!bounds) return;
       if (bounds.getNorthEast && bounds.getSouthWest && bounds.getNorthEast().equals(bounds.getSouthWest())) {
-        map.setView(bounds.getCenter(), Math.max(map.getZoom(), 11));
+        map.setView(bounds.getCenter(), Math.max(map.getZoom(), 11), { animate: true });
       } else {
-        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13, animate: true, duration: atlasEstaEmLayoutMobile() ? 0.45 : 0.35 });
       }
     }
 
@@ -16454,7 +16649,7 @@ function hoverMinerLeave(e) {
       try {
         const bounds = L.geoJSON(item.feature).getBounds();
         if (bounds && bounds.isValid && bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13, animate: true, duration: atlasEstaEmLayoutMobile() ? 0.45 : 0.35 });
         }
       } catch(_) {}
 
@@ -16462,6 +16657,7 @@ function hoverMinerLeave(e) {
       currentSelectedFeature = item.feature;
       currentSelectedType = 'feicao';
       updateInfoPanelFromGenericFeature(item.feature, item.nome, item.tipo);
+      abrirPainelInfoMobileAtlas();
 
       // Após o zoom, a filtragem progressiva é recalculada e a feição encontrada fica disponível.
       setTimeout(() => {
@@ -16627,6 +16823,7 @@ function hoverMinerLeave(e) {
       if (item.kind === 'territorio') {
         if (filtroTerritorio) filtroTerritorio.value = item.nome;
         highlightTerritory(item.nome);
+        abrirPainelInfoMobileAtlas();
         return;
       }
 
@@ -16659,6 +16856,8 @@ function hoverMinerLeave(e) {
       } else {
         updateInfoPanelFromGenericFeature(item.feature, item.nome, item.tipo);
       }
+
+      abrirPainelInfoMobileAtlas();
 
       try {
         if (item.layer?.openPopup) item.layer.openPopup();
@@ -17084,7 +17283,13 @@ function hoverMinerLeave(e) {
       if (territoriosLayer) layers.push(territoriosLayer);
       if (municipiosLayer) layers.push(municipiosLayer);
       const group = new L.featureGroup(layers);
-      try { map.fitBounds(group.getBounds(), { padding: [20, 20] }); } catch(_) {}
+      try {
+        if (piauiMinimumBounds && piauiMinimumBounds.isValid && piauiMinimumBounds.isValid()) {
+          fitPiauiCenteredAsMinimum(piauiMinimumBounds, { animate: false });
+        } else {
+          map.fitBounds(group.getBounds(), { padding: [20, 20], animate: false });
+        }
+      } catch(_) {}
     }, 1200);
 
     renderPainelInicialEstadoPiauiAtlas();
@@ -17121,6 +17326,9 @@ function hoverMinerLeave(e) {
           (target === 'info' && document.body.classList.contains('mobile-panel-info'));
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
+      if (document.body.classList.contains('mobile-panel-info') && typeof limparAtencaoInfoMobileAtlas === 'function') {
+        limparAtencaoInfoMobileAtlas();
+      }
     }
 
     function closeMobilePanels() {
@@ -17143,6 +17351,9 @@ function hoverMinerLeave(e) {
       const wasActive = document.body.classList.contains(selectedClass);
       document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
       if (!wasActive) document.body.classList.add(selectedClass);
+      if (target === 'info' && !wasActive && typeof limparAtencaoInfoMobileAtlas === 'function') {
+        limparAtencaoInfoMobileAtlas();
+      }
       updateMobileButtons();
       invalidateAtlasMaps(120);
     }
@@ -17187,7 +17398,12 @@ function hoverMinerLeave(e) {
       ensureMobileUi();
       const active = isMobileLayout();
       document.body.classList.toggle('atlas-mobile-mode', active);
-      if (!active) closeMobilePanels();
+      if (!active) {
+        if (typeof limparAtencaoInfoMobileAtlas === 'function') limparAtencaoInfoMobileAtlas();
+        closeMobilePanels();
+      } else if (!document.body.classList.contains('mobile-panel-info') && typeof chamarAtencaoInfoMobileAtlas === 'function') {
+        chamarAtencaoInfoMobileAtlas();
+      }
       invalidateAtlasMaps(220);
     }
 
