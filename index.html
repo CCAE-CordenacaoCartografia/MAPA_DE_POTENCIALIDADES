@@ -2847,7 +2847,8 @@
 
     /* ===== Ajustes solicitados: biomas sem popup e energia com símbolos vetoriais leves ===== */
     .tt-bioma-atlas,
-    .tt-camada-historica {
+    .tt-camada-historica,
+    .tt-linha-atlas {
       font-weight: 800 !important;
       padding: 5px 8px !important;
       background: rgba(255,255,255,.97) !important;
@@ -3106,7 +3107,7 @@
       <div class="top-search-wrap">
         <div class="top-search">
           <span>🔎</span>
-          <input type="text" id="globalSearch" placeholder="Buscar município, território ou qualquer feição..." />
+          <input type="text" id="globalSearch" placeholder="Buscar município, território, rio, riacho ou qualquer feição..." />
           <div id="globalSearchSuggestions" class="global-suggestions"></div>
         </div>
       </div>
@@ -7610,16 +7611,22 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
     function onEachImperial(feature, layer) {
       const nomeCamada = 'Linha Imperial — Decreto Imperial nº 3.012/1880';
 
+      // Linha Imperial: mantém a simbologia original, mas usa o mesmo hover discreto da Área de Litígio.
+      layer.options._baseStyle = { color: 'blue', weight: 2, dashArray: '5,5' };
+
       layer.bindTooltip(nomeCamada, {
         permanent: false,
         sticky: true,
         direction: 'top',
-        className: 'tt-camada-historica'
+        className: 'tt-linha-atlas'
       });
 
       layer.on({
         mouseover: highlightFeature,
-        mouseout: e => linhaImperialLayer.resetStyle(e.target),
+        mouseout: e => {
+          try { linhaImperialLayer.resetStyle(e.target); } catch(_) {}
+          limparDecoracaoHoverLinha(e.target);
+        },
         click: () => {
           currentSelectedFeature = feature;
           currentSelectedType = 'linha_imperial';
@@ -10339,7 +10346,7 @@ layer.bindPopup(html);
   });
 
   // tooltip leve com o nome
-  try { layer.bindTooltip(nome, { direction:'top', opacity:0.9, sticky:false }); } catch(_){}
+  try { layer.bindTooltip(nome, { direction:'top', opacity:1, sticky:true, className:'tt-linha-atlas' }); } catch(_){}
 }
 
 
@@ -10399,63 +10406,82 @@ layer.bindPopup(html);
     function styleRios(feature){
       const tipo = tipoCursoHidrografico(feature.properties || {});
 
-      if (tipo === 'rio') {
-        return {
-          color: '#0284c7',
-          weight: 2.2,
-          opacity: 0.96,
-          lineCap: 'round',
-          lineJoin: 'round',
-          pane: 'pane-hidros-rios'
-        };
-      }
-
-      if (tipo === 'riacho') {
-        return {
-          color: '#38bdf8',
-          weight: 1.25,
-          opacity: 0.82,
-          lineCap: 'round',
-          lineJoin: 'round',
-          pane: 'pane-hidros-rios'
-        };
-      }
-
-      if (tipo === 'outro') {
-        return {
-          color: '#7dd3fc',
-          weight: 0.95,
-          opacity: 0.70,
-          lineCap: 'round',
-          lineJoin: 'round',
-          pane: 'pane-hidros-rios'
-        };
-      }
-
-      return {
-        color: '#bae6fd',
-        weight: 0.65,
-        opacity: 0.50,
+      // Todas as linhas ficam com a mesma espessura dos rios principais.
+      // A diferenciação visual é feita somente pela cor.
+      const base = {
+        weight: 2.2,
+        opacity: 0.96,
         lineCap: 'round',
         lineJoin: 'round',
         pane: 'pane-hidros-rios'
       };
+
+      if (tipo === 'rio') {
+        return { ...base, color: '#0b4ea2' };      // azul profundo: rios principais
+      }
+
+      if (tipo === 'riacho') {
+        return { ...base, color: '#1d75cf' };      // azul médio: riachos/riachões
+      }
+
+      if (tipo === 'outro') {
+        return { ...base, color: '#38a3db' };      // azul claro: demais cursos nomeados
+      }
+
+      return { ...base, color: '#8ec5e8' };        // azul suave: cursos sem nome
+    }
+
+    function limparDecoracaoHoverLinha(layer){
+      try{
+        const el = layer && layer.getElement && layer.getElement();
+        if (el) {
+          el.classList.remove('linha-atlas-hover', 'hidro-rio-hover');
+          el.style.filter = '';
+          el.style.cursor = '';
+        }
+      }catch(_){}
+    }
+
+    function aplicarHoverLinhaAtlas(e, opcoes = {}){
+      const l = e && e.target ? e.target : e;
+      if (!l || !l.setStyle) return;
+
+      const base = (l.options && l.options._baseStyle) || l.options || {};
+      const baseWeight = Number(base.weight || 3);
+      const pesoHover = opcoes.weight || Math.max(baseWeight + 2.8, 6.2);
+
+      l.setStyle({
+        color: opcoes.color || '#ff7a00',
+        weight: pesoHover,
+        opacity: 1,
+        dashArray: opcoes.dashArray === undefined ? null : opcoes.dashArray
+      });
+
+      try{ l.bringToFront(); }catch(_){}
+      try{
+        const el = l.getElement && l.getElement();
+        if (el) {
+          el.classList.add('linha-atlas-hover');
+          el.style.filter = 'drop-shadow(0 0 2px #ffffff) drop-shadow(0 0 6px rgba(255,122,0,.95)) drop-shadow(0 0 10px rgba(255,193,7,.85))';
+          el.style.cursor = 'pointer';
+        }
+      }catch(_){}
+      try{ if (l.openTooltip) l.openTooltip(); }catch(_){}
+    }
+
+    function resetHoverLinhaAtlas(e){
+      const l = e && e.target ? e.target : e;
+      if (!l || !l.setStyle) return;
+      if (l.options && l.options._baseStyle) l.setStyle(l.options._baseStyle);
+      limparDecoracaoHoverLinha(l);
     }
 
     function hoverRio(e){
-      const l = e.target;
-      const base = l.options._baseStyle || {};
-      l.setStyle({
-        color: '#01579B',
-        weight: Math.max((base.weight || 1) + 2.2, 3.2),
-        opacity: 1
-      });
-      try{ l.bringToFront(); }catch(_){}
+      aplicarHoverLinhaAtlas(e, { color: '#ff7a00', weight: 6.2 });
     }
 
     function resetHoverRio(e){
-      const l = e.target;
-      l.setStyle(l.options._baseStyle || {});
+      resetHoverLinhaAtlas(e);
     }
 
     function styleMassas(feature){ return { color:'#0D47A1', weight:1.8, opacity:0.95, fillColor:'#1565C0', fillOpacity:0.40 }; }
@@ -10519,6 +10545,7 @@ layer.bindPopup(html);
     // Conforme aproxima, entram Riachos, demais cursos nomeados e, por fim, cursos sem nome.
     let riosGeojsonCompleto = null;
     let riosNivelAtual = null;
+    let riosSearchIndexCache = null;
 
     const riosLayer = L.geoJSON(null, {
       pane: 'pane-hidros-rios',
@@ -10532,7 +10559,7 @@ layer.bindPopup(html);
           const p = feature.properties || {};
           const tipo = tituloTipoCursoHidrografico(tipoCursoHidrografico(p));
           const nome = nomeHidrografia(p, tipo);
-          layer.bindTooltip(`${tipo}: ${nome}`, { direction:'top', opacity:0.9, sticky:false });
+          layer.bindTooltip(`${tipo}: ${nome}`, { direction:'top', opacity:1, sticky:true, className:'tt-linha-atlas' });
         } catch(_){}
       }
     });
@@ -10559,7 +10586,9 @@ layer.bindPopup(html);
       .then(r => r.json())
       .then(data => {
         riosGeojsonCompleto = data;
+        riosSearchIndexCache = null;
         atualizarRiosPorZoom(true);
+        try { invalidateSearchIndex(); } catch(_) {}
       })
       .catch(err => {
         console.warn('Não foi possível carregar Rios_.geojson:', err);
@@ -10606,14 +10635,10 @@ function styleFerrovia(feature) {
 }
 
 function hoverFerroEnter(e){
-  const l = e.target;
-  // realce tipo “casing” + engrossa
-  l.setStyle({ color:'#212121', weight:5, opacity:1, dashArray:'0' });
-  try { l.bringToFront(); } catch(_){}
+  aplicarHoverLinhaAtlas(e, { color:'#ff7a00', weight:6.6 });
 }
 function hoverFerroLeave(e){
-  const l = e.target;
-  if (l.options && l.options._baseStyle) l.setStyle(l.options._baseStyle);
+  resetHoverLinhaAtlas(e);
 }
 
 function bindFerroPopup(feature, layer){
@@ -11172,13 +11197,10 @@ function styleRodoMix() { return { pane:'pane-rodo-mix', color:'#6a1b9a', weight
 
 /* Hover */
 function hoverRodoEnter(e){
-  const l = e.target;
-  l.setStyle({ weight:(l.options._baseStyle?.weight||3)+2, opacity:1 });
-  try{ l.bringToFront(); }catch(_){}
+  aplicarHoverLinhaAtlas(e, { color:'#ff7a00', weight:6.4 });
 }
 function hoverRodoLeave(e){
-  const l = e.target;
-  if(l.options && l.options._baseStyle) l.setStyle(l.options._baseStyle);
+  resetHoverLinhaAtlas(e);
 }
 
 /* Popup + KML */
@@ -11195,7 +11217,7 @@ function bindRodoPopup(feature, layer, titulo){
       Baixar KML
     </button>`;
   layer.bindPopup(html);
-  layer.bindTooltip(`${titulo} • ${sigla}`, { direction:'top', opacity:0.9, offset:[0,-10] });
+  layer.bindTooltip(`${titulo} • ${sigla}`, { direction:'top', opacity:1, offset:[0,-10], sticky:true, className:'tt-linha-atlas' });
   layer.on('popupopen', e=>{
     const el = e.popup.getElement();
     const btn = el.querySelector('.rodo-kml-btn');
@@ -15265,9 +15287,121 @@ function hoverMinerLeave(e) {
       }
     }
 
+
+    function getRiosSearchIndex() {
+      if (riosSearchIndexCache) return riosSearchIndexCache;
+      const index = [];
+      try {
+        const features = (typeof riosGeojsonCompleto !== 'undefined' && riosGeojsonCompleto?.features) ? riosGeojsonCompleto.features : [];
+        features.forEach((feature, idx) => {
+          const props = feature?.properties || {};
+          const nome = String(props.NORIOCOMP || '').trim();
+          if (!nome) return;
+          const tipoCurso = tipoCursoHidrografico(props);
+          const tipoLabel = tituloTipoCursoHidrografico(tipoCurso);
+          const codigo = props.CORIO || '';
+          const item = makeSearchItem({
+            kind: 'rio_geojson',
+            nome,
+            tipo: tipoLabel,
+            detalhe: codigo ? `Camada Rios | Código: ${codigo}` : 'Camada Rios',
+            feature,
+            featureIndex: idx,
+            parentLayer: typeof riosLayer !== 'undefined' ? riosLayer : null,
+            viewKey: 'rios',
+            searchText: [nome, tipoLabel, codigo, 'rio riacho riachao hidrografia cursos dagua'].join(' ')
+          });
+          if (item) index.push(item);
+        });
+      } catch (err) {
+        console.warn('Não foi possível montar o índice de busca dos rios:', err);
+      }
+      riosSearchIndexCache = index;
+      return riosSearchIndexCache;
+    }
+
+    function addRiosGeojsonResults(resultados, vistos, termo) {
+      if (resultados.length >= SEARCH_MAX_RESULTS || termo.length < 3) return;
+      let adicionados = 0;
+      const maxRios = 8;
+      for (const itemBase of getRiosSearchIndex()) {
+        if (resultados.length >= SEARCH_MAX_RESULTS || adicionados >= maxRios) break;
+        const item = { ...itemBase, _searchTerm: termo };
+        if (matchesSearchTerm(item, termo, false)) {
+          adicionados++;
+          if (addUniqueResult(resultados, vistos, item)) return;
+        }
+      }
+    }
+
+    function encontrarLayerRioPorFeature(feature) {
+      if (!feature || typeof riosLayer === 'undefined' || !riosLayer?.eachLayer) return null;
+      let achado = null;
+      const p0 = feature.properties || {};
+      const nome0 = String(p0.NORIOCOMP || '').trim();
+      const cod0 = String(p0.CORIO || '').trim();
+      try {
+        riosLayer.eachLayer(layer => {
+          if (achado) return;
+          if (layer.feature === feature) { achado = layer; return; }
+          const p = layer.feature?.properties || {};
+          const mesmoNome = String(p.NORIOCOMP || '').trim() === nome0;
+          const mesmoCodigo = String(p.CORIO || '').trim() === cod0;
+          if (mesmoNome && (!cod0 || mesmoCodigo)) achado = layer;
+        });
+      } catch(_) {}
+      return achado;
+    }
+
+    function localizarRioResultadoBusca(item) {
+      if (!item?.feature) return;
+
+      try {
+        if (item.viewKey && typeof definirCamadaVisualizacao === 'function') {
+          definirCamadaVisualizacao(item.viewKey, true);
+          sincronizarChipsVisualizacao();
+        }
+      } catch(_) {}
+
+      try {
+        if (typeof riosLayer !== 'undefined' && riosLayer && !map.hasLayer(riosLayer)) map.addLayer(riosLayer);
+      } catch(_) {}
+
+      if (territorioSelecionado) resetarSelecaoTerritorio();
+      if (municipioSelecionado) {
+        fecharTooltipMunicipio(municipioSelecionado);
+        municipiosLayer.resetStyle(municipioSelecionado);
+        municipioSelecionado = null;
+      }
+
+      try {
+        const bounds = L.geoJSON(item.feature).getBounds();
+        if (bounds && bounds.isValid && bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+        }
+      } catch(_) {}
+
+      destacarResultadoBusca(item.feature);
+      currentSelectedFeature = item.feature;
+      currentSelectedType = 'feicao';
+      updateInfoPanelFromGenericFeature(item.feature, item.nome, item.tipo);
+
+      // Após o zoom, a filtragem progressiva é recalculada e a feição encontrada fica disponível.
+      setTimeout(() => {
+        try { atualizarRiosPorZoom(true); } catch(_) {}
+        const layerRio = encontrarLayerRioPorFeature(item.feature);
+        if (layerRio) {
+          try { hoverRio({ target: layerRio }); } catch(_) {}
+          try { layerRio.openPopup(); } catch(_) {}
+          setTimeout(() => { try { resetHoverRio({ target: layerRio }); } catch(_) {} }, 2600);
+        }
+      }, 420);
+
+      recolherLegenda();
+    }
+
     function getSearchLayerConfigs() {
       return [
-        { layer: typeof riosLayer !== 'undefined' ? riosLayer : null, label: 'Rios', tipo: 'Rio', viewKey: 'rios', minChars: 4, nome: (p) => typeof nomeHidrografia === 'function' ? nomeHidrografia(p, 'Rio') : getFeatureDisplayName(p, 'Rio'), keys: ['nome', 'name', 'NM_RIO', 'rio'] },
         { layer: typeof massasAguaLayer !== 'undefined' ? massasAguaLayer : null, label: "Massas d'água", tipo: "Massa d'água", viewKey: 'massasAgua', minChars: 4, nome: (p) => typeof nomeHidrografia === 'function' ? nomeHidrografia(p, "Massa d'água") : getFeatureDisplayName(p, "Massa d'água"), keys: ['nome', 'name', 'massa', 'NM'] },
         { layer: typeof ferroviasLayer !== 'undefined' ? ferroviasLayer : null, label: 'Ferrovias', tipo: 'Ferrovia', viewKey: 'ferrovias', minChars: 4, nome: (p) => typeof getFerroNome === 'function' ? getFerroNome(p, 'Ferrovia') : getFeatureDisplayName(p, 'Ferrovia'), keys: ['nome', 'name', 'ferrovia'] },
         { layer: typeof rodoviasFederaisLayer !== 'undefined' ? rodoviasFederaisLayer : null, label: 'Rodovias Federais', tipo: 'Rodovia Federal', viewKey: 'rodoviasFederais', minChars: 4, keys: ['nome', 'name', 'sigla', 'rodovia', 'br'] },
@@ -15407,6 +15541,11 @@ function hoverMinerLeave(e) {
       }
 
       if (typeof item.ensure === 'function') item.ensure(item.layer, item);
+
+      if (item.kind === 'rio_geojson') {
+        localizarRioResultadoBusca(item);
+        return;
+      }
 
       if (item.kind === 'territorio') {
         if (filtroTerritorio) filtroTerritorio.value = item.nome;
