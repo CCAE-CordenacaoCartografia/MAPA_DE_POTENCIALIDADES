@@ -28,6 +28,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3394,9 +3395,10 @@
       inset: 0;
       z-index: 8800;
       overflow: hidden;
+      /* Fundo neutro/escuro para eliminar os frames azuis iniciais antes da textura do globo carregar. */
       background:
-        radial-gradient(circle at center, rgba(30, 64, 175, .20), transparent 34%),
-        linear-gradient(180deg, #061426 0%, #0b1f38 54%, #061426 100%);
+        radial-gradient(circle at center, rgba(255, 255, 255, .055), transparent 36%),
+        linear-gradient(180deg, #02040a 0%, #05070c 58%, #02040a 100%);
       border-radius: inherit;
       opacity: 1;
       visibility: visible;
@@ -3415,6 +3417,34 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      opacity: 1;
+      transition: none;
+      background: #02040a;
+    }
+
+    #globoTerraMapa.globo-textura-pronta {
+      opacity: 1;
+    }
+
+    .globo-pular-animacao {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 2;
+      border: 1px solid rgba(255,255,255,.55);
+      border-radius: 999px;
+      background: rgba(15,23,42,.62);
+      color: #fff;
+      padding: 8px 13px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,.28);
+      backdrop-filter: blur(6px);
+    }
+
+    .globo-pular-animacao:hover {
+      background: rgba(15,23,42,.82);
     }
 
     #map.globo-map-preparando {
@@ -3524,6 +3554,73 @@
         width: 30px !important;
         height: 30px !important;
         line-height: 30px !important;
+      }
+    }
+
+
+
+    /* ===== Ajustes finais solicitados — somente versão mobile ===== */
+    @media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+      /* Norte no canto inferior direito, sem sobrepor zoom, upload, legenda ou seletor de mapa-base. */
+      .leaflet-top.leaflet-right {
+        top: auto !important;
+        right: 10px !important;
+        bottom: calc(78px + var(--mobile-safe-bottom, 8px)) !important;
+      }
+
+      .north-arrow {
+        width: 28px !important;
+        height: 28px !important;
+        opacity: .88 !important;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+      }
+
+      /* Zoom menor e posicionado abaixo do Upload KML, no lado esquerdo. */
+      .leaflet-top.leaflet-left {
+        top: 46px !important;
+        bottom: auto !important;
+        left: 10px !important;
+        gap: 4px !important;
+      }
+
+      .leaflet-control-zoom {
+        margin: 0 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.20) !important;
+      }
+
+      .leaflet-control-zoom a {
+        width: 26px !important;
+        height: 26px !important;
+        line-height: 26px !important;
+        font-size: 16px !important;
+      }
+
+      #uploadBtn {
+        top: 10px !important;
+        left: 10px !important;
+        padding: 6px 9px !important;
+        font-size: 11px !important;
+        border-radius: 9px !important;
+      }
+
+      .atlas-mobile-municipio-popup .leaflet-popup-content-wrapper {
+        border-radius: 12px !important;
+        box-shadow: 0 4px 16px rgba(15,23,42,.28) !important;
+        border: 2px solid #ff6600 !important;
+      }
+
+      .atlas-mobile-municipio-popup .leaflet-popup-content {
+        margin: 8px 10px !important;
+        font-size: 13px !important;
+        color: #243447 !important;
+        text-align: center !important;
+      }
+
+      .globo-pular-animacao {
+        right: 10px !important;
+        bottom: calc(72px + var(--mobile-safe-bottom, 8px)) !important;
+        padding: 7px 11px !important;
+        font-size: 11px !important;
       }
     }
 
@@ -3641,6 +3738,7 @@
       <div id="map"></div>
       <div id="globoIntroMapa" class="globo-mapa-intro" aria-hidden="true">
         <div id="globoTerraMapa"></div>
+        <button id="pularAnimacaoGloboAtlas" type="button" class="globo-pular-animacao">Pular animação</button>
       </div>
       <div class="map-piaui-brand"></div>
       <div id="coords" class="map-overlay">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
@@ -3868,6 +3966,8 @@
       const intro = document.getElementById('globoIntroMapa');
       const globoEl = document.getElementById('globoTerraMapa');
       const mapEl = document.getElementById('map');
+      const skipBtn = document.getElementById('pularAnimacaoGloboAtlas');
+      const texturaGloboUrl = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
 
       if (!intro || !globoEl) return;
 
@@ -3897,100 +3997,126 @@
       let globo = null;
       let animFrame = null;
       let concluido = false;
+      let iniciouCena = false;
+      let timeoutSeguranca = null;
 
       function limparEFinalizar() {
         if (concluido) return;
         concluido = true;
         if (animFrame) cancelAnimationFrame(animFrame);
+        if (timeoutSeguranca) clearTimeout(timeoutSeguranca);
+        try { globoEl.classList.remove('globo-textura-pronta'); } catch (_) {}
         finalizarGloboInternoPiauiAtlas(bounds);
       }
 
-      try {
-        globoEl.innerHTML = '';
-
-        globo = Globe()(globoEl)
-          .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-          .backgroundColor('rgba(6, 20, 38, 1)')
-          .showAtmosphere(false)
-          .polygonsData(feicoesPiaui)
-          .polygonGeoJsonGeometry(d => d.geometry)
-          .polygonAltitude(0)
-          .polygonCapColor(() => 'rgba(242, 194, 48, 0.08)')
-          .polygonSideColor(() => 'rgba(242, 194, 48, 0.00)')
-          .polygonStrokeColor(() => '#fff200')
-          .polygonLabel(() => '');
-
-        globo.controls().enableZoom = false;
-        globo.controls().enablePan = false;
-        globo.controls().autoRotate = false;
-
-        // Reduz o custo de renderização em hospedagem e celulares sem mudar o visual principal.
-        try {
-          const renderer = globo.renderer && globo.renderer();
-          if (renderer && renderer.setPixelRatio) {
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, globoCfg.pixelRatioMax));
-          }
-        } catch (_) {}
-
-        function redimensionarGlobo() {
-          if (!globo) return;
-          const rect = intro.getBoundingClientRect();
-          globo.width(Math.max(1, rect.width));
-          globo.height(Math.max(1, rect.height));
-        }
-
-        redimensionarGlobo();
-        window.addEventListener('resize', redimensionarGlobo);
-
-        const inicio = {
-          lat: centro.lat + (atlasGloboEhMobile() ? 0.9 : 1.2),
-          lng: centro.lng - globoCfg.rotacaoInicialGraus,
-          altitude: Math.max(globoCfg.altitudeInicial, altitudeFinalGlobo + (atlasGloboEhMobile() ? 1.18 : 1.45))
-        };
-
-        const fim = {
-          lat: centro.lat,
-          lng: centro.lng,
-          altitude: altitudeFinalGlobo
-        };
-
-        globo.pointOfView(inicio, 0);
-
-        const mix = (a, b, t) => a + (b - a) * t;
-        const inicioAnimacao = performance.now() + globoCfg.atrasoInicial;
-
-        function animar(now) {
-          if (concluido) return;
-
-          const bruto = Math.max(0, Math.min(1, (now - inicioAnimacao) / globoCfg.duracaoAproximacao));
-          const t = suavizarGloboAtlas(bruto);
-
-          globo.pointOfView({
-            lat: mix(inicio.lat, fim.lat, t),
-            lng: mix(inicio.lng, fim.lng, t),
-            altitude: mix(inicio.altitude, fim.altitude, t)
-          }, 0);
-
-          if (bruto < 1) {
-            animFrame = requestAnimationFrame(() => {
-          animFrame = requestAnimationFrame(animar);
-        });
-          } else {
-            window.removeEventListener('resize', redimensionarGlobo);
-            setTimeout(limparEFinalizar, 160);
-          }
-        }
-
-        animFrame = requestAnimationFrame(animar);
-
-        // Segurança: se algum navegador/hospedagem travar textura ou animação, libera o mapa.
-        setTimeout(() => {
-          if (!concluido) limparEFinalizar();
-        }, globoCfg.duracaoAproximacao + globoCfg.duracaoFade + 2200);
-      } catch (err) {
-        console.warn('Falha ao iniciar o globo 3D do Piauí:', err);
-        limparEFinalizar();
+      if (skipBtn) {
+        skipBtn.addEventListener('click', (ev) => {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          limparEFinalizar();
+        }, { once: true });
       }
+
+      function iniciarCenaGloboComTexturaPronta() {
+        if (iniciouCena || concluido) return;
+        iniciouCena = true;
+
+        try {
+          globoEl.innerHTML = '';
+          globoEl.classList.add('globo-textura-pronta');
+
+          globo = Globe()(globoEl)
+            .globeImageUrl(texturaGloboUrl)
+            .backgroundColor('rgba(2, 4, 10, 1)')
+            .showAtmosphere(false)
+            .polygonsData(feicoesPiaui)
+            .polygonGeoJsonGeometry(d => d.geometry)
+            .polygonAltitude(0)
+            .polygonCapColor(() => 'rgba(242, 194, 48, 0.08)')
+            .polygonSideColor(() => 'rgba(242, 194, 48, 0.00)')
+            .polygonStrokeColor(() => '#fff200')
+            .polygonLabel(() => '');
+
+          globo.controls().enableZoom = false;
+          globo.controls().enablePan = false;
+          globo.controls().autoRotate = false;
+
+          // Reduz o custo de renderização em hospedagem e celulares sem mudar o visual principal.
+          try {
+            const renderer = globo.renderer && globo.renderer();
+            if (renderer && renderer.setPixelRatio) {
+              renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, globoCfg.pixelRatioMax));
+            }
+          } catch (_) {}
+
+          function redimensionarGlobo() {
+            if (!globo) return;
+            const rect = intro.getBoundingClientRect();
+            globo.width(Math.max(1, rect.width));
+            globo.height(Math.max(1, rect.height));
+          }
+
+          redimensionarGlobo();
+          window.addEventListener('resize', redimensionarGlobo);
+
+          const inicio = {
+            lat: centro.lat + (atlasGloboEhMobile() ? 0.9 : 1.2),
+            lng: centro.lng - globoCfg.rotacaoInicialGraus,
+            altitude: Math.max(globoCfg.altitudeInicial, altitudeFinalGlobo + (atlasGloboEhMobile() ? 1.18 : 1.45))
+          };
+
+          const fim = {
+            lat: centro.lat,
+            lng: centro.lng,
+            altitude: altitudeFinalGlobo
+          };
+
+          globo.pointOfView(inicio, 0);
+
+          // O globo começa imediatamente ao abrir o site, sem tela ou imagem prévia antes da animação.
+          globoEl.classList.add('globo-textura-pronta');
+
+          const mix = (a, b, t) => a + (b - a) * t;
+          const inicioAnimacao = performance.now() + globoCfg.atrasoInicial;
+
+          function animar(now) {
+            if (concluido) return;
+
+            const bruto = Math.max(0, Math.min(1, (now - inicioAnimacao) / globoCfg.duracaoAproximacao));
+            const t = suavizarGloboAtlas(bruto);
+
+            globo.pointOfView({
+              lat: mix(inicio.lat, fim.lat, t),
+              lng: mix(inicio.lng, fim.lng, t),
+              altitude: mix(inicio.altitude, fim.altitude, t)
+            }, 0);
+
+            if (bruto < 1) {
+              animFrame = requestAnimationFrame(animar);
+            } else {
+              window.removeEventListener('resize', redimensionarGlobo);
+              setTimeout(limparEFinalizar, 160);
+            }
+          }
+
+          animFrame = requestAnimationFrame(animar);
+
+          // Segurança: se algum navegador/hospedagem travar textura ou animação, libera o mapa.
+          timeoutSeguranca = setTimeout(() => {
+            if (!concluido) limparEFinalizar();
+          }, globoCfg.duracaoAproximacao + globoCfg.duracaoFade + 2200);
+        } catch (err) {
+          console.warn('Falha ao iniciar o globo 3D do Piauí:', err);
+          limparEFinalizar();
+        }
+      }
+
+      // Começa a animação imediatamente ao abrir o site: nada de tela escura ou prévia antes do globo.
+      requestAnimationFrame(iniciarCenaGloboComTexturaPronta);
+
+      // Segurança: se algum navegador/hospedagem não iniciar o Globe.gl, revela o mapa.
+      setTimeout(() => {
+        if (!iniciouCena && !concluido) limparEFinalizar();
+      }, atlasGloboEhMobile() ? 1100 : 900);
     }
 
 let currentSelectedFeature = null;
@@ -8519,6 +8645,26 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
         }
         municipioSelecionado = layer;
         layer.setStyle({ weight: 4, color: '#ff6600', fillColor: '#ff6600', fillOpacity: 0.5 });
+
+        // No mobile, ao clicar no município, mostra um popup simples com o nome.
+        if (typeof atlasEstaEmLayoutMobile === 'function' && atlasEstaEmLayoutMobile()) {
+          try {
+            const latlngPopup = e?.latlng || (layer.getBounds && layer.getBounds().getCenter && layer.getBounds().getCenter());
+            if (latlngPopup) {
+              L.popup({
+                className: 'atlas-mobile-municipio-popup',
+                closeButton: true,
+                autoClose: true,
+                autoPan: false,
+                maxWidth: 220
+              })
+                .setLatLng(latlngPopup)
+                .setContent(`<strong>${nome}</strong>`)
+                .openOn(map);
+            }
+          } catch (_) {}
+        }
+
         currentSelectedFeature = feature;
         currentSelectedType = 'municipio';
         updateInfoPanelFromMunicipio(feature.properties);
@@ -17293,6 +17439,7 @@ function hoverMinerLeave(e) {
     }, 1200);
 
     renderPainelInicialEstadoPiauiAtlas();
+    if (!currentSelectedFeature) currentSelectedType = 'estado';
   </script>
 
 <script>
@@ -17350,6 +17497,12 @@ function hoverMinerLeave(e) {
 
       const wasActive = document.body.classList.contains(selectedClass);
       document.body.classList.remove('mobile-panel-filters', 'mobile-panel-info', 'mobile-camadas-open');
+      if (target === 'info' && !wasActive && !currentSelectedFeature && typeof renderPainelInicialEstadoPiauiAtlas === 'function') {
+        try {
+          renderPainelInicialEstadoPiauiAtlas();
+          currentSelectedType = 'estado';
+        } catch (_) {}
+      }
       if (!wasActive) document.body.classList.add(selectedClass);
       if (target === 'info' && !wasActive && typeof limparAtencaoInfoMobileAtlas === 'function') {
         limparAtencaoInfoMobileAtlas();
