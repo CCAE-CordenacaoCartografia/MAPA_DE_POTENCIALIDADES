@@ -21,6 +21,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -10202,9 +10203,10 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
     // HIDROGRAFIA
     const COLOR_RIO  = '#00A8F6';
     function nomeHidrografia(props = {}, fallback = 'Hidrografia'){
-      const key = ['NOME','Nome','name','Rio','RIO','Curso','Hidrografia','Corpo','Corpo_dagua','Corpo_Dagua']
-        .find(k => Object.keys(props).some(p => p.toLowerCase() === k.toLowerCase()));
-      return key ? props[key] : fallback;
+      const keys = ['NORIOCOMP','CORIO','NOME','Nome','name','Rio','RIO','Curso','Hidrografia','Corpo','Corpo_dagua','Corpo_Dagua'];
+      const hit = Object.keys(props || {}).find(p => keys.some(k => p.toLowerCase() === k.toLowerCase()));
+      const valor = hit ? props[hit] : '';
+      return (valor !== null && valor !== undefined && String(valor).trim()) ? String(valor).trim() : fallback;
     }
 
 
@@ -10342,9 +10344,119 @@ layer.bindPopup(html);
 
 
     // Rios (linhas)
-    function styleRios(feature){ return { color: COLOR_RIO, weight: 2.8, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }; }
-    function hoverRio(e){ const l=e.target; l.setStyle({ color:'#01579B', weight:6, opacity:1 }); try{ l.bringToFront(); }catch(_){} }
-    function resetHoverRio(e){ const l=e.target; l.setStyle(l.options._baseStyle || {}); }
+    // A tabela de atributos da camada Rios_.geojson possui NORIOCOMP e CORIO.
+    // A identificação entre Rio/Riacho é feita pelo início do nome em NORIOCOMP.
+    const HIDRO_ZOOM = {
+      riosPrincipais: 0,   // zoom baixo: mostra somente nomes iniciados por "Rio"
+      riachos: 9,          // zoom médio: inclui "Riacho" e "Riachão"
+      outrosNomeados: 10,  // zoom maior: inclui Baixão, Brejo, Vereda, Córrego etc.
+      semNome: 12          // zoom detalhado: inclui feições sem NORIOCOMP
+    };
+
+    function normalizarTextoHidro(valor){
+      return String(valor ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    function tipoCursoHidrografico(props = {}){
+      const nome = props.NORIOCOMP;
+      const nomeTxt = String(nome ?? '').trim();
+      if (!nomeTxt) return 'sem_nome';
+
+      const n = normalizarTextoHidro(nomeTxt);
+      if (/^rio\b/.test(n)) return 'rio';
+      if (/^riach(o|ao)\b/.test(n) || n.includes(' riacho') || n.includes(' riachao')) return 'riacho';
+
+      return 'outro';
+    }
+
+    function tituloTipoCursoHidrografico(tipo){
+      if (tipo === 'rio') return 'Rio';
+      if (tipo === 'riacho') return 'Riacho';
+      if (tipo === 'outro') return "Curso d'água";
+      return "Curso d'água sem nome";
+    }
+
+    function nivelRiosPorZoom(z){
+      if (z >= HIDRO_ZOOM.semNome) return 'sem_nome';
+      if (z >= HIDRO_ZOOM.outrosNomeados) return 'outros_nomeados';
+      if (z >= HIDRO_ZOOM.riachos) return 'riachos';
+      return 'rios_principais';
+    }
+
+    function cursoVisivelNoZoom(feature, zoom){
+      const tipo = tipoCursoHidrografico(feature.properties || {});
+      const nivel = nivelRiosPorZoom(zoom);
+
+      if (nivel === 'rios_principais') return tipo === 'rio';
+      if (nivel === 'riachos') return tipo === 'rio' || tipo === 'riacho';
+      if (nivel === 'outros_nomeados') return tipo !== 'sem_nome';
+      return true;
+    }
+
+    function styleRios(feature){
+      const tipo = tipoCursoHidrografico(feature.properties || {});
+
+      if (tipo === 'rio') {
+        return {
+          color: '#0284c7',
+          weight: 2.2,
+          opacity: 0.96,
+          lineCap: 'round',
+          lineJoin: 'round',
+          pane: 'pane-hidros-rios'
+        };
+      }
+
+      if (tipo === 'riacho') {
+        return {
+          color: '#38bdf8',
+          weight: 1.25,
+          opacity: 0.82,
+          lineCap: 'round',
+          lineJoin: 'round',
+          pane: 'pane-hidros-rios'
+        };
+      }
+
+      if (tipo === 'outro') {
+        return {
+          color: '#7dd3fc',
+          weight: 0.95,
+          opacity: 0.70,
+          lineCap: 'round',
+          lineJoin: 'round',
+          pane: 'pane-hidros-rios'
+        };
+      }
+
+      return {
+        color: '#bae6fd',
+        weight: 0.65,
+        opacity: 0.50,
+        lineCap: 'round',
+        lineJoin: 'round',
+        pane: 'pane-hidros-rios'
+      };
+    }
+
+    function hoverRio(e){
+      const l = e.target;
+      const base = l.options._baseStyle || {};
+      l.setStyle({
+        color: '#01579B',
+        weight: Math.max((base.weight || 1) + 2.2, 3.2),
+        opacity: 1
+      });
+      try{ l.bringToFront(); }catch(_){}
+    }
+
+    function resetHoverRio(e){
+      const l = e.target;
+      l.setStyle(l.options._baseStyle || {});
+    }
 
     function styleMassas(feature){ return { color:'#0D47A1', weight:1.8, opacity:0.95, fillColor:'#1565C0', fillOpacity:0.40 }; }
     function hoverMassa(e){ const l=e.target; l.setStyle({ color:'#0B3D91', weight:3.2, opacity:1, fillOpacity:0.70 }); try{ l.bringToFront(); }catch(_){} }
@@ -10352,13 +10464,17 @@ layer.bindPopup(html);
 
     function hydroPopup(feature, layer, tipo){
       const p = feature.properties || {};
-      const nome = p.NORIOCOMP || (tipo === 'rio' ? 'Rio sem nome' : "Massa d'água");
+      const nome = p.NORIOCOMP || (tipo === 'massa' ? "Massa d'água" : "Curso d'água sem nome");
       const codigo = p.CORIO || '';
-      const titulo = (tipo === 'rio') ? 'Rio' : "Massa d'água";
+      const tipoCurso = tipo === 'massa' ? 'massa' : tipoCursoHidrografico(p);
+      const titulo = tipo === 'massa' ? "Massa d'água" : tituloTipoCursoHidrografico(tipoCurso);
 
       let linhas = '';
+      if (tipo !== 'massa') {
+        linhas += `<tr><th style="text-align:left;padding:4px;border-bottom:1px solid #eee;font-weight:bold;">Tipo</th><td style="text-align:right;padding:4px;border-bottom:1px solid #eee;">${titulo}</td></tr>`;
+      }
       if (p.NORIOCOMP !== undefined) {
-        linhas += `<tr><th style="text-align:left;padding:4px;border-bottom:1px solid #eee;font-weight:bold;">Nome do Rio</th><td style="text-align:right;padding:4px;border-bottom:1px solid #eee;">${nome}</td></tr>`;
+        linhas += `<tr><th style="text-align:left;padding:4px;border-bottom:1px solid #eee;font-weight:bold;">Nome</th><td style="text-align:right;padding:4px;border-bottom:1px solid #eee;">${nome}</td></tr>`;
       }
       if (p.CORIO !== undefined) {
         linhas += `<tr><th style="text-align:left;padding:4px;border-bottom:1px solid #eee;font-weight:bold;">Código</th><td style="text-align:right;padding:4px;border-bottom:1px solid #eee;">${codigo}</td></tr>`;
@@ -10381,13 +10497,13 @@ layer.bindPopup(html);
         const btn = el.querySelector('.hidro-kml-btn');
         if (!btn) return;
         btn.addEventListener('click', ()=>{
-          const nomeArq = String(nome).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s-]/g,'').replace(/\s+/g,'_') || (tipo==='rio' ? 'rio' : 'massa_dagua');
+          const nomeArq = String(nome).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s-]/g,'').replace(/\s+/g,'_') || (tipo==='massa' ? 'massa_dagua' : 'curso_dagua');
           let kml = tokml({ type:'FeatureCollection', features:[feature] });
-          const estiloKML = (tipo === 'rio')
+          const estiloKML = (tipo !== 'massa')
             ? `<Style id="rioStyle"><LineStyle><color>fff7c34f</color><width>4</width></LineStyle></Style>`
             : `<Style id="massaStyle"><LineStyle><color>ff1047a1</color><width>2</width></LineStyle><PolyStyle><color>801565c0</color><fill>1</fill><outline>1</outline></PolyStyle></Style>`;
           kml = kml.replace('</Document>', `${estiloKML}</Document>`)
-                   .replace(/<Placemark>/g, `<Placemark><styleUrl>#${tipo==='rio' ? 'rioStyle' : 'massaStyle'}</styleUrl>`);
+                   .replace(/<Placemark>/g, `<Placemark><styleUrl>#${tipo !== 'massa' ? 'rioStyle' : 'massaStyle'}</styleUrl>`);
           const blob = new Blob([kml], { type:'application/vnd.google-earth.kml+xml' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a'); a.href = url; a.download = `${nomeArq}.kml`;
@@ -10396,20 +10512,65 @@ layer.bindPopup(html);
       });
     }
 
+
     // Camadas Hidrografia
-    const riosLayer = new L.GeoJSON.AJAX("Rios_.geojson", {
+    // Camada de rios com carregamento progressivo por zoom.
+    // Ao ativar em escala estadual, entram apenas os principais ("Rio").
+    // Conforme aproxima, entram Riachos, demais cursos nomeados e, por fim, cursos sem nome.
+    let riosGeojsonCompleto = null;
+    let riosNivelAtual = null;
+
+    const riosLayer = L.geoJSON(null, {
       pane: 'pane-hidros-rios',
       style: (f)=>{ const s = styleRios(f); return s; },
       onEachFeature: (feature, layer)=>{
-        layer.options._baseStyle = styleRios(feature);
-        hydroPopup(feature, layer, 'rio');
+        const s = styleRios(feature);
+        layer.options._baseStyle = s;
+        hydroPopup(feature, layer, 'curso');
         layer.on({ mouseover: hoverRio, mouseout: resetHoverRio });
         try {
-          const nome = nomeHidrografia(feature.properties || {}, 'Rio');
-          layer.bindTooltip(nome, { direction:'top', opacity:0.9, sticky:false });
+          const p = feature.properties || {};
+          const tipo = tituloTipoCursoHidrografico(tipoCursoHidrografico(p));
+          const nome = nomeHidrografia(p, tipo);
+          layer.bindTooltip(`${tipo}: ${nome}`, { direction:'top', opacity:0.9, sticky:false });
         } catch(_){}
       }
-    })
+    });
+
+    function atualizarRiosPorZoom(forcar = false){
+      if (!riosGeojsonCompleto || !riosGeojsonCompleto.features) return;
+
+      const zoomAtual = map.getZoom();
+      const nivel = nivelRiosPorZoom(zoomAtual);
+
+      // Evita recriar a camada a cada pequeno movimento dentro da mesma faixa de zoom.
+      if (!forcar && nivel === riosNivelAtual && riosLayer.getLayers().length) return;
+      riosNivelAtual = nivel;
+
+      const filtradas = riosGeojsonCompleto.features.filter(f => cursoVisivelNoZoom(f, zoomAtual));
+      riosLayer.clearLayers();
+      riosLayer.addData({
+        type: 'FeatureCollection',
+        features: filtradas
+      });
+    }
+
+    fetch("Rios_.geojson")
+      .then(r => r.json())
+      .then(data => {
+        riosGeojsonCompleto = data;
+        atualizarRiosPorZoom(true);
+      })
+      .catch(err => {
+        console.warn('Não foi possível carregar Rios_.geojson:', err);
+      });
+
+    map.on('zoomend', () => {
+      if (map.hasLayer(riosLayer)) atualizarRiosPorZoom();
+    });
+
+    riosLayer.on('add', () => atualizarRiosPorZoom(true));
+
     const massasAguaLayer = new L.GeoJSON.AJAX("Massas_Dagua.geojson", {
       pane: 'pane-hidros-massas',
       style: (f)=>{ const s = styleMassas(f); return s; },
