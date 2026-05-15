@@ -26,6 +26,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3359,7 +3360,52 @@
       }
     }
 
-</style>
+
+    /* ===== Globo 3D interno no mapa principal ===== */
+    .globo-mapa-intro {
+      position: absolute;
+      inset: 0;
+      z-index: 8800;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at center, rgba(30, 64, 175, .20), transparent 34%),
+        linear-gradient(180deg, #061426 0%, #0b1f38 54%, #061426 100%);
+      border-radius: inherit;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 1.15s ease, visibility 1.15s ease;
+    }
+
+    .globo-mapa-intro.saindo {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    #globoTerraMapa {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map.globo-map-preparando {
+      opacity: 0;
+      transition: opacity 1.15s ease;
+    }
+
+    #map.globo-map-revelado {
+      opacity: 1;
+    }
+
+    @media (max-width: 760px) {
+      .globo-mapa-intro {
+        border-radius: 14px;
+      }
+    }
+
+  </style>
 </head>
 <body>
   <div class="app">
@@ -3471,6 +3517,9 @@
     <main class="map-shell panel" id="mapShell">
       <!-- Mapa principal limpo: filtros e buscas permanecem fora deste bloco. -->
       <div id="map"></div>
+      <div id="globoIntroMapa" class="globo-mapa-intro" aria-hidden="true">
+        <div id="globoTerraMapa"></div>
+      </div>
       <div class="map-piaui-brand"></div>
       <div id="coords" class="map-overlay">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
@@ -3520,6 +3569,7 @@
   <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+  <script src="https://unpkg.com/globe.gl"></script>
 
   <script>
     const map = L.map('map', {
@@ -3567,6 +3617,231 @@
         fitPiauiCenteredAsMinimum(piauiMinimumBounds, { animate: false });
       }, 180);
     });
+
+    /* ===== Abertura interna com globo 3D até o limite do piaui.geojson ===== */
+    const GLOBO_PIAUI_INTRO_ATLAS = {
+      // Ajustado para hospedagem: início mais leve, sem arrancada brusca,
+      // e aproximação final mais próxima do enquadramento mínimo do Piauí.
+      duracaoAproximacao: 5600,
+      duracaoFade: 1350,
+      atrasoInicial: 320,
+      altitudeInicial: 2.35,
+      altitudeFinalPadrao: 0.52,
+      rotacaoInicialGraus: 38
+    };
+
+    function obterCentroLatLngDoGeoJsonAtlas(geojson, fallbackBounds) {
+      try {
+        if (typeof turf !== 'undefined' && geojson) {
+          const centro = turf.center(geojson);
+          const coords = centro && centro.geometry && centro.geometry.coordinates;
+          if (coords && coords.length >= 2) {
+            return { lat: coords[1], lng: coords[0] };
+          }
+        }
+      } catch (_) {}
+
+      try {
+        if (fallbackBounds && fallbackBounds.isValid && fallbackBounds.isValid()) {
+          const c = fallbackBounds.getCenter();
+          return { lat: c.lat, lng: c.lng };
+        }
+      } catch (_) {}
+
+      return { lat: -7.0, lng: -42.5 };
+    }
+
+    function prepararFeicoesPiauiParaGloboAtlas(geojson) {
+      try {
+        if (!geojson) return [];
+        if (geojson.type === 'FeatureCollection') {
+          return (geojson.features || []).filter(f => f && f.geometry);
+        }
+        if (geojson.type === 'Feature') return [geojson];
+        if (geojson.type === 'Polygon' || geojson.type === 'MultiPolygon') {
+          return [{ type: 'Feature', properties: {}, geometry: geojson }];
+        }
+      } catch (_) {}
+      return [];
+    }
+
+    function calcularAltitudeFinalGloboPiauiAtlas(bounds, containerEl) {
+      // Aproxima o globo até uma escala visual compatível com o fitBounds do Leaflet.
+      // Mantém uma pequena margem para o perímetro do Piauí não cortar em telas diferentes.
+      try {
+        if (!bounds || !bounds.isValid || !bounds.isValid()) {
+          return GLOBO_PIAUI_INTRO_ATLAS.altitudeFinalPadrao;
+        }
+
+        const rect = containerEl ? containerEl.getBoundingClientRect() : { width: 900, height: 620 };
+        const aspecto = Math.max(0.75, Math.min(2.2, (rect.width || 900) / Math.max(1, rect.height || 620)));
+        const latSpan = Math.abs(bounds.getNorth() - bounds.getSouth());
+        const lngSpan = Math.abs(bounds.getEast() - bounds.getWest());
+
+        const fatorLat = latSpan / 8.6;
+        const fatorLng = (lngSpan / aspecto) / 4.5;
+        const fator = Math.max(fatorLat, fatorLng, 0.85);
+
+        return Math.max(0.48, Math.min(0.62, 0.50 * fator + 0.04));
+      } catch (_) {
+        return GLOBO_PIAUI_INTRO_ATLAS.altitudeFinalPadrao;
+      }
+    }
+
+    function finalizarGloboInternoPiauiAtlas(bounds) {
+      const intro = document.getElementById('globoIntroMapa');
+      const mapEl = document.getElementById('map');
+
+      try {
+        if (bounds && bounds.isValid && bounds.isValid()) {
+          fitPiauiCenteredAsMinimum(bounds, { animate: false });
+        }
+      } catch (_) {}
+
+      if (mapEl) {
+        mapEl.classList.remove('globo-map-preparando');
+        mapEl.classList.add('globo-map-revelado');
+      }
+
+      if (intro) {
+        intro.classList.add('saindo');
+        setTimeout(() => {
+          try { intro.remove(); } catch (_) {}
+          try { map.invalidateSize(false); } catch (_) {}
+        }, GLOBO_PIAUI_INTRO_ATLAS.duracaoFade + 120);
+      }
+    }
+
+    function iniciarGloboInternoPiauiAtlas(piauiData, bounds) {
+      const intro = document.getElementById('globoIntroMapa');
+      const globoEl = document.getElementById('globoTerraMapa');
+      const mapEl = document.getElementById('map');
+
+      if (!intro || !globoEl) return;
+
+      // O Leaflet já fica no enquadramento mínimo correto antes da animação.
+      // Assim, quando o globo some, o mapa aparece exatamente no limite do piaui.geojson.
+      try {
+        if (bounds && bounds.isValid && bounds.isValid()) {
+          fitPiauiCenteredAsMinimum(bounds, { animate: false });
+        }
+      } catch (_) {}
+
+      if (mapEl) {
+        mapEl.classList.add('globo-map-preparando');
+      }
+
+      if (typeof Globe !== 'function') {
+        setTimeout(() => finalizarGloboInternoPiauiAtlas(bounds), 350);
+        return;
+      }
+
+      const centro = obterCentroLatLngDoGeoJsonAtlas(piauiData, bounds);
+      const feicoesPiaui = prepararFeicoesPiauiParaGloboAtlas(piauiData);
+      const altitudeFinalGlobo = calcularAltitudeFinalGloboPiauiAtlas(bounds, intro);
+
+      let globo = null;
+      let animFrame = null;
+      let concluido = false;
+
+      function limparEFinalizar() {
+        if (concluido) return;
+        concluido = true;
+        if (animFrame) cancelAnimationFrame(animFrame);
+        finalizarGloboInternoPiauiAtlas(bounds);
+      }
+
+      try {
+        globoEl.innerHTML = '';
+
+        globo = Globe()(globoEl)
+          .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+          .backgroundColor('rgba(6, 20, 38, 1)')
+          .showAtmosphere(false)
+          .polygonsData(feicoesPiaui)
+          .polygonGeoJsonGeometry(d => d.geometry)
+          .polygonAltitude(0)
+          .polygonCapColor(() => 'rgba(242, 194, 48, 0.08)')
+          .polygonSideColor(() => 'rgba(242, 194, 48, 0.00)')
+          .polygonStrokeColor(() => '#fff200')
+          .polygonLabel(() => '');
+
+        globo.controls().enableZoom = false;
+        globo.controls().enablePan = false;
+        globo.controls().autoRotate = false;
+
+        // Reduz o custo de renderização em hospedagem e celulares sem mudar o visual principal.
+        try {
+          const renderer = globo.renderer && globo.renderer();
+          if (renderer && renderer.setPixelRatio) {
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+          }
+        } catch (_) {}
+
+        function redimensionarGlobo() {
+          if (!globo) return;
+          const rect = intro.getBoundingClientRect();
+          globo.width(Math.max(1, rect.width));
+          globo.height(Math.max(1, rect.height));
+        }
+
+        redimensionarGlobo();
+        window.addEventListener('resize', redimensionarGlobo);
+
+        const inicio = {
+          lat: centro.lat + 1.35,
+          lng: centro.lng - GLOBO_PIAUI_INTRO_ATLAS.rotacaoInicialGraus,
+          altitude: Math.max(GLOBO_PIAUI_INTRO_ATLAS.altitudeInicial, altitudeFinalGlobo + 1.55)
+        };
+
+        const fim = {
+          lat: centro.lat,
+          lng: centro.lng,
+          altitude: altitudeFinalGlobo
+        };
+
+        globo.pointOfView(inicio, 0);
+
+        const easeInOutCubic = t => {
+          if (t < 0.5) return 4 * t * t * t;
+          return 1 - Math.pow(-2 * t + 2, 3) / 2;
+        };
+
+        const mix = (a, b, t) => a + (b - a) * t;
+        const inicioAnimacao = performance.now() + GLOBO_PIAUI_INTRO_ATLAS.atrasoInicial;
+
+        function animar(now) {
+          if (concluido) return;
+
+          const bruto = Math.max(0, Math.min(1, (now - inicioAnimacao) / GLOBO_PIAUI_INTRO_ATLAS.duracaoAproximacao));
+          const t = easeInOutCubic(bruto);
+
+          globo.pointOfView({
+            lat: mix(inicio.lat, fim.lat, t),
+            lng: mix(inicio.lng, fim.lng, t),
+            altitude: mix(inicio.altitude, fim.altitude, t)
+          }, 0);
+
+          if (bruto < 1) {
+            animFrame = requestAnimationFrame(animar);
+          } else {
+            window.removeEventListener('resize', redimensionarGlobo);
+            setTimeout(limparEFinalizar, 160);
+          }
+        }
+
+        animFrame = requestAnimationFrame(animar);
+
+        // Segurança: se algum navegador/hospedagem travar textura ou animação, libera o mapa.
+        setTimeout(() => {
+          if (!concluido) limparEFinalizar();
+        }, GLOBO_PIAUI_INTRO_ATLAS.duracaoAproximacao + GLOBO_PIAUI_INTRO_ATLAS.duracaoFade + 2500);
+      } catch (err) {
+        console.warn('Falha ao iniciar o globo 3D do Piauí:', err);
+        limparEFinalizar();
+      }
+    }
+
 let currentSelectedFeature = null;
     let currentSelectedType = null;
     let currentSelectedPotencialidadeCampo = null;
@@ -15538,9 +15813,13 @@ function hoverMinerLeave(e) {
         layersControl.addOverlay(piauiLayer, "Estado do Piauí");
 
         // Visualização inicial: Piauí inteiro, centralizado, como zoom mínimo.
+        // O fitBounds é feito antes do globo para que a transição termine exatamente no limite do piaui.geojson.
+        fitPiauiCenteredAsMinimum(piauiLayer.getBounds(), { animate: false });
+
+        // Pequeno respiro inicial evita travamento/arrancada quando o arquivo está hospedado.
         setTimeout(() => {
-          fitPiauiCenteredAsMinimum(piauiLayer.getBounds(), { animate: false });
-        }, 120);
+          iniciarGloboInternoPiauiAtlas(piauiData, piauiLayer.getBounds());
+        }, 380);
 
         try {
           const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]);
