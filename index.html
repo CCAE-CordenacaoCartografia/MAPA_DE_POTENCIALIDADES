@@ -388,7 +388,7 @@
     .territorios-toggle-hint,
     .potencialidades-toggle-hint,
     .camadas-toggle-hint {
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 800;
       letter-spacing: .2px;
       color: rgba(255,255,255,.82);
@@ -1716,6 +1716,190 @@
       color: #64748b;
       font-size: 11.5px;
       white-space: nowrap;
+    }
+
+
+    /* ===== Seletor visual de mapas-base no canto superior direito ===== */
+    .basemap-switcher {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 3100;
+      width: 66px;
+      pointer-events: auto;
+    }
+
+    .basemap-trigger {
+      position: relative;
+      width: 64px;
+      height: 58px;
+      border: 3px solid #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #dbe4ea;
+      padding: 0;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(15,23,42,.30);
+      display: block;
+    }
+
+    .basemap-trigger-thumb {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      transform: scale(1.02);
+    }
+
+    .basemap-trigger::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 28px;
+      background: linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,.82) 100%);
+      pointer-events: none;
+    }
+
+    .basemap-trigger-meta {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      bottom: 5px;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      text-shadow: 0 1px 3px rgba(0,0,0,.65);
+      line-height: 1.1;
+      pointer-events: none;
+    }
+
+    .basemap-trigger-icon {
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .basemap-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 112px;
+      max-height: min(72vh, 560px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      background: rgba(255,255,255,.98);
+      border-radius: 14px;
+      padding: 10px 9px;
+      box-shadow: 0 6px 20px rgba(15,23,42,.22);
+      border: 1px solid rgba(226,232,240,.96);
+      backdrop-filter: blur(8px);
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+
+    .basemap-switcher.is-collapsed .basemap-panel {
+      display: none;
+    }
+
+    .basemap-card,
+    .basemap-more-btn {
+      width: 86px;
+      min-height: 76px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      color: #334155;
+      text-align: center;
+      display: block;
+    }
+
+    .basemap-card-thumb,
+    .basemap-more-box {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 5px auto;
+      border-radius: 13px;
+      background-color: #eef0f3;
+      background-size: cover;
+      background-position: center;
+      box-shadow: inset 0 0 0 1px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.14);
+      transition: transform .16s ease, box-shadow .16s ease;
+      display: block;
+    }
+
+    .basemap-more-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #475569;
+    }
+
+    .basemap-card:hover .basemap-card-thumb,
+    .basemap-card.active .basemap-card-thumb,
+    .basemap-more-btn:hover .basemap-more-box {
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 1px rgba(15,23,42,.08), 0 0 0 2px #ffffff, 0 0 0 4px rgba(11,107,42,.85);
+    }
+
+    .basemap-label {
+      display: block;
+      font-size: 11px;
+      line-height: 1.05;
+      color: #6b7280;
+      white-space: normal;
+      max-width: 86px;
+      margin: 0 auto;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    @media (max-width: 760px) {
+      .basemap-switcher {
+        top: 10px;
+        right: 10px;
+        width: 62px;
+      }
+      .basemap-trigger {
+        width: 60px;
+        height: 54px;
+      }
+      .basemap-trigger-meta {
+        bottom: 5px;
+        font-size: 8.5px;
+      }
+      .basemap-panel {
+        width: 104px;
+        max-height: min(70vh, 500px);
+        padding: 8px;
+        gap: 8px;
+      }
+      .basemap-card,
+      .basemap-more-btn {
+        width: 78px;
+        min-height: 70px;
+      }
+      .basemap-card-thumb,
+      .basemap-more-box {
+        width: 52px;
+        height: 52px;
+      }
+      .basemap-label {
+        font-size: 10px;
+        max-width: 78px;
+      }
     }
 
 
@@ -3640,12 +3824,24 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
       attribution: 'Tiles © Esri'
     });
 
+    const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
+    });
+
     osmLayer.addTo(map);
 
     const territorioPalette = [
       '#1f78b4','#33a02c','#e31a1c','#ff7f00','#6a3d9a','#b15928',
       '#a6cee3','#b2df8a','#fb9a99','#fdbf6f','#cab2d6','#ffff99'
     ];
+
+    const COR_TERRITORIO_VALE_DO_SAMBITO = '#B8860B';
 
     const territorioColors = [];
     let colorIndex = 0;
@@ -3668,6 +3864,25 @@ map.createPane('pane-mask');           map.getPane('pane-mask').style.zIndex = 2
         (codigoLimpo && normalizarValorTerritorio(t.codigo) === codigoLimpo) ||
         (!codigoLimpo && t.nome === nomeLimpo)
       );
+
+      const nomeTerritorioSemAcento = nomeLimpo
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      const isValeDoSambito = nomeTerritorioSemAcento.includes('vale do sambito');
+
+      if (isValeDoSambito) {
+        const display = codigoLimpo ? `TD ${codigoLimpo} – ${nomeLimpo}` : nomeLimpo;
+        if (!terr) {
+          terr = { nome: nomeLimpo, codigo: codigoLimpo, label: display, cor: COR_TERRITORIO_VALE_DO_SAMBITO };
+          territorioColors.push(terr);
+          colorIndex++;
+        } else {
+          terr.cor = COR_TERRITORIO_VALE_DO_SAMBITO;
+        }
+        return terr.cor;
+      }
 
       if (!terr) {
         const display = codigoLimpo ? `TD ${codigoLimpo} – ${nomeLimpo}` : nomeLimpo;
@@ -9241,7 +9456,9 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       "OpenStreetMap": osmLayer,
       "Esri Satélite": esriSat,
       "Esri Terrain": esriTerrain,
-      "Esri Road": esriRoad
+      "Esri Road": esriRoad,
+      "Esri Topográfico": esriTopo,
+      "Mapa claro": cartoLight
     };
 
     const overlayMaps = {
@@ -9257,6 +9474,209 @@ function desenharQuadroResumoPdf(doc, x, y, w, titulo, items = []) {
       collapsed: false,
       position: 'topleft'
     }).addTo(map);
+
+
+    function criarSeletorVisualMapasBase() {
+      const mapShell = document.getElementById('mapShell');
+      if (!mapShell || document.getElementById('baseMapSwitcher')) return;
+
+      function miniaturaMapa(tipo) {
+        const modelos = {
+          satellite: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#355d40"/><stop offset=".55" stop-color="#8a7f55"/><stop offset="1" stop-color="#2f4f63"/></linearGradient></defs>
+              <rect width="96" height="96" fill="url(#g)"/>
+              <path d="M-8 72 C20 44 44 56 66 28 C78 13 93 10 108 5" fill="none" stroke="#d8d2b8" stroke-width="6" opacity=".55"/>
+              <path d="M6 12 L32 2 L58 20 L83 10 L104 26 L104 104 L75 91 L45 100 L18 82 L-8 90Z" fill="#213b2d" opacity=".25"/>
+              <circle cx="70" cy="60" r="18" fill="#c9b47b" opacity=".35"/>
+            </svg>`,
+          relief: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <rect width="96" height="96" fill="#e6eadf"/>
+              <path d="M5 73 C18 58 28 59 40 45 C55 28 71 22 91 10" fill="none" stroke="#8e9a86" stroke-width="9" opacity=".85"/>
+              <path d="M4 83 C18 70 35 75 49 61 C65 46 73 38 92 31" fill="none" stroke="#cfd7c8" stroke-width="7"/>
+              <path d="M18 5 C33 16 44 22 61 18 C72 15 82 19 95 27" fill="none" stroke="#f8f8f2" stroke-width="8"/>
+              <path d="M13 22 C27 32 39 35 50 31 C67 25 75 31 89 38" fill="none" stroke="#aeb8a4" stroke-width="3" opacity=".55"/>
+            </svg>`,
+          streets: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <rect width="96" height="96" fill="#eef3ef"/>
+              <path d="M-6 62 C20 53 38 48 57 27 C68 15 78 10 104 7" fill="none" stroke="#54b37b" stroke-width="8"/>
+              <path d="M-4 30 C18 34 30 43 44 58 C57 73 70 81 104 83" fill="none" stroke="#4ac0ce" stroke-width="8"/>
+              <path d="M47 -8 L47 104" stroke="#e76673" stroke-width="6"/>
+              <path d="M-5 58 L105 58" stroke="#f2c24a" stroke-width="5"/>
+              <path d="M-5 58 L105 58" stroke="#fff" stroke-width="2" opacity=".75"/>
+            </svg>`,
+          topo: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <rect width="96" height="96" fill="#ecf5ec"/>
+              <path d="M-4 24 C20 13 40 14 58 26 C75 38 85 38 101 30" fill="none" stroke="#8bcf9d" stroke-width="8"/>
+              <path d="M8 83 C27 60 47 64 62 42 C73 27 83 24 101 23" fill="none" stroke="#6abf83" stroke-width="5"/>
+              <circle cx="50" cy="53" r="20" fill="none" stroke="#38a169" stroke-width="5"/>
+              <circle cx="50" cy="53" r="9" fill="none" stroke="#38a169" stroke-width="3"/>
+              <path d="M3 51 H36" stroke="#d6a642" stroke-width="5"/>
+              <path d="M62 53 H100" stroke="#d6a642" stroke-width="5"/>
+            </svg>`,
+          light: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <rect width="96" height="96" fill="#f7f8f8"/>
+              <path d="M-5 35 C18 37 34 43 50 58 C65 72 78 74 103 69" fill="none" stroke="#d8dee4" stroke-width="7"/>
+              <path d="M44 -5 L54 101" stroke="#cfd6de" stroke-width="5"/>
+              <path d="M8 78 L90 6" stroke="#e6eaee" stroke-width="5"/>
+              <path d="M-4 63 H100" stroke="#e1e5ea" stroke-width="4"/>
+              <rect x="57" y="15" width="20" height="14" rx="3" fill="#dbe7ff"/>
+              <text x="67" y="25" text-anchor="middle" font-size="11" font-family="Arial" fill="#2563eb" font-weight="700">M</text>
+            </svg>`,
+          osm: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+              <rect width="96" height="96" fill="#e7f4e7"/>
+              <path d="M-8 68 C15 50 35 54 55 34 C69 20 82 16 106 14" fill="none" stroke="#ffffff" stroke-width="10"/>
+              <path d="M-8 68 C15 50 35 54 55 34 C69 20 82 16 106 14" fill="none" stroke="#9ca3af" stroke-width="4"/>
+              <path d="M4 22 H100" stroke="#f6c453" stroke-width="5"/>
+              <path d="M43 -5 V101" stroke="#f6c453" stroke-width="5"/>
+              <path d="M0 46 C18 46 26 52 41 63 C55 73 69 75 96 71" fill="none" stroke="#7bc7d5" stroke-width="6"/>
+              <circle cx="24" cy="69" r="9" fill="#9bd18b"/>
+            </svg>`
+        };
+        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(modelos[tipo] || modelos.osm)}`;
+      }
+
+      const basesVisuais = [
+        {
+          key: 'satellite',
+          label: 'Satélite',
+          layer: esriSat,
+          thumb: miniaturaMapa('satellite')
+        },
+        {
+          key: 'relief',
+          label: 'Relevo',
+          layer: esriTerrain,
+          thumb: miniaturaMapa('relief')
+        },
+        {
+          key: 'streets',
+          label: 'Ruas',
+          layer: esriRoad,
+          thumb: miniaturaMapa('streets')
+        },
+        {
+          key: 'topo',
+          label: 'Topográfico',
+          layer: esriTopo,
+          thumb: miniaturaMapa('topo')
+        },
+        {
+          key: 'light',
+          label: 'Claro',
+          layer: cartoLight,
+          thumb: miniaturaMapa('light')
+        },
+        {
+          key: 'osm',
+          label: 'Mapa',
+          layer: osmLayer,
+          thumb: miniaturaMapa('osm')
+        }
+      ];
+
+      const wrapper = document.createElement('div');
+      wrapper.id = 'baseMapSwitcher';
+      wrapper.className = 'basemap-switcher is-collapsed';
+
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'basemap-trigger';
+      trigger.title = 'Camadas';
+      trigger.innerHTML = `
+        <span class="basemap-trigger-thumb"></span>
+        <span class="basemap-trigger-meta">
+          <span class="basemap-trigger-icon">◫</span>
+          <span>Camadas</span>
+        </span>
+      `;
+
+      const triggerThumb = trigger.querySelector('.basemap-trigger-thumb');
+
+      const panel = document.createElement('div');
+      panel.className = 'basemap-panel';
+
+      const setActive = (item) => {
+        basesVisuais.forEach(base => {
+          if (map.hasLayer(base.layer)) map.removeLayer(base.layer);
+        });
+
+        item.layer.addTo(map);
+        item.layer.bringToBack();
+
+        triggerThumb.style.backgroundImage = `url("${item.thumb}")`;
+        trigger.dataset.base = item.key;
+
+        panel.querySelectorAll('.basemap-card').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.base === item.key);
+        });
+      };
+
+      basesVisuais.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'basemap-card';
+        btn.dataset.base = item.key;
+        btn.title = item.label;
+        btn.innerHTML = `
+          <span class="basemap-card-thumb" style='background-image:url("${item.thumb}")'></span>
+          <span class="basemap-label">${item.label}</span>
+        `;
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setActive(item);
+        });
+        panel.appendChild(btn);
+      });
+
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.className = 'basemap-more-btn';
+      moreBtn.title = 'Recolher';
+      moreBtn.innerHTML = `
+        <span class="basemap-more-box">◫</span>
+        <span class="basemap-label">Recolher</span>
+      `;
+      moreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        wrapper.classList.add('is-collapsed');
+      });
+      panel.appendChild(moreBtn);
+
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        wrapper.classList.toggle('is-collapsed');
+      });
+
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(panel);
+      mapShell.appendChild(wrapper);
+
+      const ativoInicial = basesVisuais.find(item => map.hasLayer(item.layer)) || basesVisuais[0];
+      setActive(ativoInicial);
+
+      const fechar = (e) => {
+        if (!wrapper.contains(e.target)) wrapper.classList.add('is-collapsed');
+      };
+      document.addEventListener('click', fechar);
+      document.addEventListener('touchstart', fechar, { passive: true });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') wrapper.classList.add('is-collapsed');
+      });
+
+      L.DomEvent.disableClickPropagation(wrapper);
+      L.DomEvent.disableScrollPropagation(wrapper);
+    }
+
+    criarSeletorVisualMapasBase();
 
     map.on('overlayadd', (e) => {
       if (e.name === 'Litígio') {
